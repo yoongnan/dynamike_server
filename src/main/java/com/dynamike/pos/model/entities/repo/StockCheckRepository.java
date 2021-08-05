@@ -23,5 +23,13 @@ public interface StockCheckRepository extends JpaRepository<StockCheck, Long>, P
     
     @Query("SELECT v From StockCheck v where v.productId = :id order by v.date desc")
     List<StockCheck> getStockCheck(@Param("id") String id);
+    
+    
+    @Query("SELECT v From StockCheck as v  where v.year =:year and v.month =:month group by substring(v.date,1,10)")
+    List<StockCheck> getStockCheckDate(@Param("year") Integer year,@Param("month") Integer month);
+    
+    @Query(value = " select *  from pos.stock_check  where date like :date  order by product_id", 
+	  nativeQuery = true)
+    List<StockCheck> getStockCheckByDate(@Param("date") String date);
 
 }

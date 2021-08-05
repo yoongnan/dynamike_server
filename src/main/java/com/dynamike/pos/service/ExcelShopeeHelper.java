@@ -4,7 +4,9 @@ import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -22,6 +24,7 @@ import com.dynamike.pos.model.entities.OrderList;
 import com.dynamike.pos.model.entities.Payment;
 import com.dynamike.pos.model.entities.PaymentType;
 import com.dynamike.pos.model.entities.ProviderSource;
+import com.google.common.collect.Maps;
 
 
 public class ExcelShopeeHelper {
@@ -39,7 +42,7 @@ public class ExcelShopeeHelper {
 
     return true;
   }
-  public static List<OrderList> excelShopeeToOrderList(InputStream is, String excel) {
+  public static List<OrderList> excelShopeeToCancelledOrderList(InputStream is, String excel) {
 	    try {
 	    	Sheet sheet;
 	    	Workbook workbook = null;
@@ -52,6 +55,13 @@ public class ExcelShopeeHelper {
 	    		sheet = hssfworkbook.getSheetAt(0);
 	    	}
 	      Iterator<Row> rows = sheet.iterator();
+	      
+	      List<String> colNames = Arrays.asList(
+	      		  "Order ID","Order Status","Order Paid Time", "Phone Number","Delivery Address","Remark from buyer","Product Subtotal",
+	      		  "Total Amount","Transaction Fee","Commission Fee","Service Fee","Grand Total","Product Name","Quantity");
+	      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+	      checkCellColumn(sheet,colNames,cellno);
 
 	      List<OrderList> orders = new ArrayList<OrderList>();
 
@@ -69,75 +79,99 @@ public class ExcelShopeeHelper {
 	        Iterator<Cell> cellsInRow = currentRow.iterator();
 
 	        OrderList order = new OrderList();
-	        
-	        int cellIdx = 0;
-	        while (cellsInRow.hasNext()) {
-	          Cell currentCell = cellsInRow.next();
+	        order.setInvoiceId(currentRow.getCell(cellno.get("Order ID")).getStringCellValue());
+	        if(currentRow.getCell(cellno.get("Order Status")).getStringCellValue().equals("Cancelled")) {
+    		  orderstatus= true;
+    	  	}
+	        order.setItemId(currentRow.getCell(cellno.get("Product Name")).getStringCellValue().split("-")[0].trim());
+    	  	Integer qty = (int) currentRow.getCell(cellno.get("Quantity")).getNumericCellValue();
+    	  	order.setQuantity(qty);
 
-	          switch (cellIdx) {
-	          case 0: // orderId
-	        	  order.setInvoiceId(currentCell.getStringCellValue());
-	            break;
-	          case 1: // OrderStatus | Cancelled
-	        	  if(currentCell.getStringCellValue().equals("Cancelled")) {
-	        		  orderstatus= true;
-	        	  }
-	            break;
-
-	          case 10: // Order Paid Time
-	            break;
-
-	          case 12: // Product Name
-	        	  order.setItemId(currentCell.getStringCellValue().split("-")[0].trim());
-	            break;
-
-	          case 17: // Quantity
-	        	  Integer qty = (int) currentCell.getNumericCellValue();
-	        	  order.setQuantity(qty);
-	            break;
-
-	          case 26: // Seller Voucher
-	            break;
-	            
-	          case 34: // Total Amount
-	              break;
-	              
-	          case 35: // Buyer Paid Shipping Fee
-	              break;
-	              
-	          case 36: // Transaction Fee
-	            break;
-
-	          case 37: // Commission Fee
-	            break;
-	            
-	          case 38: // Service Fee
-	            break;
-
-	          case 40: // Estimated Shipping Fee
-	            break;
-
-	          case 41: // Username (Buyer)
-	            break;
-	            
-	          case 42: // Receiver Name
-	            break;
-	            
-	          case 43: // Phone Number
-	            break;
-	            
-	          case 44: // Delivery Address
-	            break;
-
-	          case 51: // SG Buyer Info
-	            break;
-	            
-	          default:
-	            break;
-	          }
-
-	          cellIdx++;
+	       	 if(currentRow.getCell(cellno.get("Phone Number")).getStringCellValue().equals("60355453789")) {
+	       		String[] BuyerInfo =  currentRow.getCell(cellno.get("Remark from buyer")).getStringCellValue().split("]");
+	       		
+	       		for(int i =0;i<BuyerInfo.length;i++) {
+	    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Order SN")) {
+	    				 order.setInvoiceId(order.getInvoiceId().trim() + "/" + BuyerInfo[i].split(": ")[1].toString().trim());
+	    			 }
+	    			 
+	    		 }
+	       	 }
+	        if(orderstatus) {
+	        	orders.add(order);	
 	        }
+	        
+	      }
+
+	      if(workbook != null) {
+	    	  workbook.close();   
+	      }
+	      if(hssfworkbook != null) {
+	    	  hssfworkbook.close();   
+	      }
+
+	      return orders;
+	    } catch (IOException e) {
+	      throw new RuntimeException("fail to parse Excel file: " + e.getMessage());
+	    }
+	  }
+  public static List<OrderList> excelShopeeToOrderList(InputStream is, String excel) {
+	  DecimalFormat df = new DecimalFormat("0.00");
+	    try {
+	    	Sheet sheet;
+	    	Workbook workbook = null;
+	    	HSSFWorkbook hssfworkbook = null;
+	    	if(excel.equals(".xlsx")) {
+	  	      workbook = new XSSFWorkbook(is);
+	  	      sheet = workbook.getSheetAt(0);	    		
+	    	}else {
+	    		hssfworkbook = new HSSFWorkbook(new POIFSFileSystem(is));
+	    		sheet = hssfworkbook.getSheetAt(0);
+	    	}
+	      Iterator<Row> rows = sheet.iterator();
+	      
+	      List<String> colNames = Arrays.asList(
+	      		  "Order ID","Order Status","Order Paid Time", "Phone Number","Delivery Address","Remark from buyer","Product Subtotal",
+	      		  "Total Amount","Transaction Fee","Commission Fee","Service Fee","Grand Total","Product Name","Quantity");
+	      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+	      checkCellColumn(sheet,colNames,cellno);
+
+	      List<OrderList> orders = new ArrayList<OrderList>();
+
+	      int rowNumber = 0;
+	      while (rows.hasNext()) {
+	    	boolean orderstatus = false;
+	        Row currentRow = rows.next();
+
+	        // skip header
+	        if (rowNumber == 0) {
+	          rowNumber++;
+	          continue;
+	        }
+
+	        Iterator<Cell> cellsInRow = currentRow.iterator();
+
+	        OrderList order = new OrderList();
+	        order.setInvoiceId(currentRow.getCell(cellno.get("Order ID")).getStringCellValue());
+	        if(currentRow.getCell(cellno.get("Order Status")).getStringCellValue().equals("Cancelled")) {
+      		  orderstatus= true;
+      	  	}
+	        order.setItemId(currentRow.getCell(cellno.get("Product Name")).getStringCellValue().split("-")[0].trim());
+      	  	Integer qty = (int) currentRow.getCell(cellno.get("Quantity")).getNumericCellValue();
+      	  	order.setQuantity(qty);
+    	  	Float sellingPrice = Float.parseFloat(currentRow.getCell(cellno.get("Product Subtotal")).getStringCellValue());
+    	  	order.setSellingPrice(df.format(sellingPrice));
+	        
+
+	       	 if(currentRow.getCell(cellno.get("Phone Number")).getStringCellValue().equals("60355453789")) {
+	       		String[] BuyerInfo =  currentRow.getCell(cellno.get("Remark from buyer")).getStringCellValue().split("]");
+	       		for(int i =0;i<BuyerInfo.length;i++) {
+	    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Order SN")) {
+	    				 order.setInvoiceId(order.getInvoiceId().trim() + "/" + BuyerInfo[i].split(": ")[1].toString().trim());
+	    			 }
+	    		 }
+	       	 }
 
 	        if(!orderstatus) {
 	        	orders.add(order);	
@@ -173,7 +207,15 @@ public class ExcelShopeeHelper {
 	      Iterator<Row> rows = sheet.iterator();
 
 	      List<Client> clients = new ArrayList<Client>();
+	      
+	      List<String> colNames = Arrays.asList("Receiver Name","Username (Buyer)",
+	      		  "Order ID","Order Status","Order Paid Time", "Phone Number","Delivery Address","Remark from buyer",
+	      		  "Total Amount","Transaction Fee","Commission Fee","Service Fee","Grand Total");
+	      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
 
+	      checkCellColumn(sheet,colNames,cellno);
+
+	        
 	      int rowNumber = 0;
 	      while (rows.hasNext()) {
 	        Row currentRow = rows.next();
@@ -184,85 +226,31 @@ public class ExcelShopeeHelper {
 	          continue;
 	        }
 
-	        Iterator<Cell> cellsInRow = currentRow.iterator();
-
+	        
 	        Client client = new Client();
 	        
 	        int cellIdx = 0;
 	        Boolean isSG = false;
-	        while (cellsInRow.hasNext()) {
-	          Cell currentCell = cellsInRow.next();
-
-	          switch (cellIdx) {
-	          case 0: // orderId
-	            break;
-	          case 1: // OrderStatus | Cancelled
-	            break;
-
-	          case 10: // Order Paid Time
-	            break;
-
-	          case 12: // Product Name
-	            break;
-
-	          case 17: // Quantity
-	            break;
-
-	          case 26: // Seller Voucher
-	            break;
-	            
-	          case 34: // Total Amount
-	              break;
-	              
-	          case 35: // Buyer Paid Shipping Fee
-	              break;
-	              
-	          case 36: // Transaction Fee
-	            break;
-
-	          case 37: // Commission Fee
-	            break;
-	            
-	          case 38: // Service Fee
-	            break;
-
-	          case 40: // Estimated Shipping Fee
-	            break;
-
-	          case 41: // Username (Buyer)
-	        	client.setName(currentCell.getStringCellValue());
-	            break;
-	            
-	          case 42: // Receiver Name
-	        	client.setName(client.getName() + "/"+currentCell.getStringCellValue());
-	            break;
-	            
-	          case 43: // Phone Number
-	        	  client.setId(currentCell.getStringCellValue());
-	        	  client.setContactNo(currentCell.getStringCellValue());
-	        	  if(client.getContactNo().equals("60355453789")) {
-	        		  isSG = true;
-	        	  }
-	            break;
-	            
-	          case 44: // Delivery Address
-	        	  client.setBillingAddress(currentCell.getStringCellValue());
-	            break;
-
-	          case 51: // SG Buyer Info
-	        	  if(isSG) {
-	        		String[] BuyerInfo =  currentCell.getStringCellValue().split("]");
-	        		client.setName(BuyerInfo[1].split(": ")[1]);
-	        		client.setId(BuyerInfo[2].split(": ")[1]);
-	        		client.setContactNo(BuyerInfo[2].split(": ")[1]);
-	        	  }
-	            break;
-	            
-	          default:
-	            break;
-	          }
-
-	          cellIdx++;
+	        client.setName(currentRow.getCell(cellno.get("Username (Buyer)")).getStringCellValue() +"/" + currentRow.getCell(cellno.get("Receiver Name")).getStringCellValue());
+	        client.setBillingAddress(currentRow.getCell(cellno.get("Delivery Address")).getStringCellValue());
+	        client.setContactNo(currentRow.getCell(cellno.get("Phone Number")).getStringCellValue());
+	        if(client.getContactNo().equals("60355453789")) {
+	        	isSG = true;
+	        }
+	        if(isSG) {
+	        	String[] BuyerInfo =  currentRow.getCell(cellno.get("Remark from buyer")).getStringCellValue().split("]");
+	        	for(int i =0;i<BuyerInfo.length;i++) {
+	    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Buyer name")) {
+	    				 client.setName(BuyerInfo[i].split(": ")[1]);		 
+	    			 }
+	    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Buyer phone")) {
+	    				 client.setId(BuyerInfo[i].split(": ")[1]);
+	    				 client.setContactNo(BuyerInfo[i].split(": ")[1]);		
+	    			 }
+	    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Buyer address")) {
+	    				 client.setShippingAddress(BuyerInfo[i].split(": ")[1]);		 
+	    			 }
+	    		 }
 	        }
 
 	        clients.add(client);
@@ -282,6 +270,22 @@ public class ExcelShopeeHelper {
 	    }
 	  }
 
+  public static void checkCellColumn(Sheet sheet,List<String> colNames,HashMap<String,Integer> cellno) {
+	  Iterator<Cell> cellsInRow = sheet.getRow(0).iterator();
+
+      int cellIdx = 0;
+      int size = colNames.size();
+      while (cellsInRow.hasNext()) { 
+          if(colNames.indexOf(sheet.getRow(0).getCell(cellIdx).getStringCellValue()) != -1) {
+        	  cellno.put(colNames.get(colNames.indexOf(sheet.getRow(0).getCell(cellIdx).getStringCellValue())), cellIdx);
+        	  size--;
+        	  if(size ==0) {
+        		  break;
+        	  }
+          }
+          cellIdx++;
+      }	
+  }
   public static List<Payment> excelShopeeToTransaction(InputStream is, String excel, List<Client> clients) {
 	  DecimalFormat df = new DecimalFormat("0.00");
     try {
@@ -299,6 +303,13 @@ public class ExcelShopeeHelper {
 
       List<Payment> payments = new ArrayList<Payment>();
 
+      List<String> colNames = Arrays.asList(
+    		  "Order ID","Order Status","Order Paid Time", "Phone Number","Delivery Address","Remark from buyer","Buyer Paid Shipping Fee",
+    		  "Total Amount","Transaction Fee","Commission Fee","Service Fee","Grand Total");
+      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+      checkCellColumn(sheet,colNames,cellno);
+      
       int rowNumber = 0;
       while (rows.hasNext()) {
         Row currentRow = rows.next();
@@ -309,8 +320,6 @@ public class ExcelShopeeHelper {
           continue;
         }
 
-        Iterator<Cell> cellsInRow = currentRow.iterator();
-
         Payment payment = new Payment();
 
         Boolean isSG = false;
@@ -320,6 +329,8 @@ public class ExcelShopeeHelper {
         Float paymentDue = 0f;
         Float voucher = 0f;
         Float paymentFees = 0f;
+        Float otherFees = 0f;
+        Float commissionFees = 0f;
         Float shippingFees = 0f;
         PaymentType type = new PaymentType();
         type.setId(4);
@@ -330,119 +341,197 @@ public class ExcelShopeeHelper {
         payment.setFreeShipping(false);
         payment.setBalance("0.00");
         payment.setDiscount("0.00");
-        int cellIdx = 0;
-        while (cellsInRow.hasNext()) {
-          Cell currentCell = cellsInRow.next();
-          
-              switch (cellIdx) {
-              case 0: // orderId
-            	  payment.setOrderId(currentCell.getStringCellValue());
-                break;
-              case 1: // OrderStatus | Cancelled
-            	  if(currentCell.getStringCellValue().equals("Cancelled")) {
-            		  isCancelled = true;
-            	  }
-    	      	  payment.setStatus(currentCell.getStringCellValue());
-                break;
+        payment.setOrderId(currentRow.getCell(cellno.get("Order ID")).getStringCellValue());
+        if(currentRow.getCell(cellno.get("Order Status")).getStringCellValue().equals("Cancelled")) {
+  		  isCancelled = true;
+  	  	}
+    	 payment.setStatus(currentRow.getCell(cellno.get("Order Status")).getStringCellValue());
+    	 java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+    	 String dateString = currentRow.getCell(cellno.get("Order Paid Time")).getStringCellValue();
+    	 Date date = null;
+    	 try {
+		 	date = dateFormat.parse(dateString);
+    	 } catch (ParseException e) {
+			// TODO Auto-generated catch block
+//			e.printStackTrace();
+    	 }
+    	 if(date !=null) {
+			payment.setDate(date);
+    	 }
+    	 
+    	 paymentCredit = Float.parseFloat(currentRow.getCell(cellno.get("Grand Total")).getStringCellValue());
+    	 paymentFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Transaction Fee")).getStringCellValue());
+    	 commissionFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Commission Fee")).getStringCellValue());
+    	 shippingFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Buyer Paid Shipping Fee")).getStringCellValue());
+    	 otherFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Service Fee")).getStringCellValue());
+    	 client.setBillingAddress(currentRow.getCell(cellno.get("Delivery Address")).getStringCellValue());
+    	 client.setContactNo(currentRow.getCell(cellno.get("Phone Number")).getStringCellValue());
+    	 if(client.getContactNo().equals("60355453789")) {
+    		 isSG = true;
+    	 }
+    	 if(isSG) {
+    		 String[] BuyerInfo =  currentRow.getCell(cellno.get("Remark from buyer")).getStringCellValue().split("]");
+    		 
+    		 for(int i =0;i<BuyerInfo.length;i++) {
+    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Order SN")) {
+    				 payment.setOrderId(payment.getOrderId().trim() + "/" + BuyerInfo[i].split(": ")[1].toString().trim());		 
+    			 }
 
-              case 10: // Order Paid Time
-            	  java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
-            	  String dateString = currentCell.getStringCellValue();
-            	  Date date = null;
-    			try {
-    				date = dateFormat.parse(dateString);
-    			} catch (ParseException e) {
-    				// TODO Auto-generated catch block
-    				e.printStackTrace();
-    			}
-//            	  String newDate = dateFormat.format(date);
-    			if(date !=null) {
-    				payment.setDate(date);
-    			}
-            	  
-                break;
+    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Buyer name")) {
+    				 client.setName(BuyerInfo[i].split(": ")[1]);		 
+    			 }
+    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Buyer phone")) {
+    				 client.setId(BuyerInfo[i].split(": ")[1]);
+    				 client.setContactNo(BuyerInfo[i].split(": ")[1]);		
+    			 }
+    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Buyer address")) {
+    				 client.setShippingAddress(BuyerInfo[i].split(": ")[1]);		 
+    			 }
+    		 }
+    	 }
 
-              case 12: // Product Name
-                break;
-
-              case 17: // Quantity
-                break;
-
-              case 26: // Seller Voucher
-            	  voucher = Float.parseFloat(currentCell.getStringCellValue());
-                break;
-                
-              case 34: // Total Amount
-            	  paymentCredit = Float.parseFloat(currentCell.getStringCellValue());
-                  break;
-              case 35: // Buyer Paid Shipping Fee
-                  break;
-                  
-              case 36: // Transaction Fee
-            	  paymentFees = Float.parseFloat(currentCell.getStringCellValue());
-                break;
-
-              case 37: // Commission Fee
-            	  paymentFees += Float.parseFloat(currentCell.getStringCellValue());
-                break;
-                
-              case 38: // Service Fee
-            	  paymentFees += Float.parseFloat(currentCell.getStringCellValue());
-                break;
-
-              case 40: // Estimated Shipping Fee
-                break;
-
-              case 41: // Username (Buyer)
-//                tutorial.setPublished(currentCell.getBooleanCellValue());
-                break;
-                
-              case 42: // Receiver Name
-//            	  client.setBillingAddress(currentCell.getStringCellValue());
-                break;
-                
-              case 43: // Phone Number
-//            	  client.setId(currentCell.getStringCellValue());
-            	  client.setContactNo(currentCell.getStringCellValue());
-            	  if(client.getContactNo().equals("60355453789")) {
-            		  isSG = true;
-            	  }
-                break;
-                
-              case 44: // Delivery Address
-            	  client.setBillingAddress(currentCell.getStringCellValue());
-                break;
-
-              case 51: // SG Buyer Info
-            	  if(isSG) {
-            		String[] BuyerInfo =  currentCell.getStringCellValue().split("]");
-//            		client.setName(BuyerInfo[1].split(": ")[1]);
-//            		client.setId(BuyerInfo[2].split(": ")[1]);
-//            		client.setContactNo(BuyerInfo[2].split(": ")[1]);
-
-              	  	payment.setOrderId(payment.getOrderId() + "/" + BuyerInfo[3].split(": ")[1]);
-            	  }
-                break;
-                
-              default:
-                break;
-              }  
-          
-          cellIdx++;
-        }
-
-//        client = ;
-        
 	  	  payment.setClient(clients.get(rowNumber-1));
+	  	  paymentCredit =  paymentCredit + shippingFees;
 	  	  payment.setPaymentCredit(df.format(paymentCredit));
 	  	  payment.setPaymentFees(df.format(paymentFees));
-	  	  paymentDue = paymentCredit - paymentFees;
-	  	  paymentDue = paymentDue -voucher;
-	  	  payment.setPaymentDue(paymentDue);
+	  	  payment.setCommissionFees(df.format(commissionFees));
+	  	  payment.setOthersFees(df.format(otherFees));
+	  	  paymentDue = paymentCredit + paymentFees + otherFees + commissionFees;
+//	  	  paymentDue = paymentDue -voucher;
+	  	  payment.setPaymentDue(df.format(paymentDue));
 	  	  
 	  	  Payment p = payments.stream().filter(o -> o.getOrderId().equals(payment.getOrderId())).findFirst().orElse(null);
 	  	  if(p ==null) {
 	  		if(!isCancelled) {
+	  			payments.add(payment);
+	         }
+	  			  
+	  	  }
+        
+        rowNumber++;
+      }
+
+      if(workbook != null) {
+    	  workbook.close();   
+      }
+      if(hssfworkbook != null) {
+    	  hssfworkbook.close();   
+      }
+
+      return payments;
+    } catch (IOException e) {
+      throw new RuntimeException("fail to parse Excel file: " + e.getMessage());
+    }
+  }
+  public static List<Payment> excelShopeeToCancelledTransaction(InputStream is, String excel, List<Client> clients) {
+	  DecimalFormat df = new DecimalFormat("0.00");
+    try {
+    	Sheet sheet;
+    	Workbook workbook = null;
+    	HSSFWorkbook hssfworkbook = null;
+    	if(excel.equals(".xlsx")) {
+  	      workbook = new XSSFWorkbook(is);
+  	      sheet = workbook.getSheetAt(0);	    		
+    	}else {
+    		hssfworkbook = new HSSFWorkbook(new POIFSFileSystem(is));
+    		sheet = hssfworkbook.getSheetAt(0);
+    	}
+      Iterator<Row> rows = sheet.iterator();
+
+      List<Payment> payments = new ArrayList<Payment>();
+
+      List<String> colNames = Arrays.asList(
+    		  "Order ID","Order Status","Order Paid Time", "Phone Number","Delivery Address","Remark from buyer","Buyer Paid Shipping Fee",
+    		  "Total Amount","Transaction Fee","Commission Fee","Service Fee","Grand Total");
+      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+      checkCellColumn(sheet,colNames,cellno);
+      
+      int rowNumber = 0;
+      while (rows.hasNext()) {
+        Row currentRow = rows.next();
+
+        // skip header
+        if (rowNumber == 0) {
+          rowNumber++;
+          continue;
+        }
+
+        Payment payment = new Payment();
+
+        Boolean isSG = false;
+        Boolean isCancelled = false;
+        Client client = new Client();
+        Float paymentCredit = 0f;
+        Float paymentDue = 0f;
+        Float voucher = 0f;
+        Float paymentFees = 0f;
+        Float otherFees = 0f;
+        Float comissionFees = 0f;        
+        Float shippingFees = 0f;
+        PaymentType type = new PaymentType();
+        type.setId(4);
+        payment.setPaymentType(type);
+        ProviderSource provider = new ProviderSource();
+        provider.setId(2);
+        payment.setProvider(provider);
+        payment.setFreeShipping(false);
+        payment.setBalance("0.00");
+        payment.setDiscount("0.00");
+        payment.setOrderId(currentRow.getCell(cellno.get("Order ID")).getStringCellValue());
+        if(currentRow.getCell(cellno.get("Order Status")).getStringCellValue().equals("Cancelled")) {
+  		  isCancelled = true;
+  	  	}
+    	 payment.setStatus(currentRow.getCell(cellno.get("Order Status")).getStringCellValue());
+    	 java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+    	 String dateString = currentRow.getCell(cellno.get("Order Paid Time")).getStringCellValue();
+    	 Date date = null;
+    	 try {
+		 	date = dateFormat.parse(dateString);
+    	 } catch (ParseException e) {
+			// TODO Auto-generated catch block
+//			e.printStackTrace();
+    	 }
+    	 if(date !=null) {
+			payment.setDate(date);
+    	 }
+    	 
+    	 paymentCredit = Float.parseFloat(currentRow.getCell(cellno.get("Grand Total")).getStringCellValue());
+    	 paymentFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Transaction Fee")).getStringCellValue());
+    	 comissionFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Commission Fee")).getStringCellValue());
+    	 otherFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Service Fee")).getStringCellValue());
+    	 shippingFees = Float.parseFloat("-"+currentRow.getCell(cellno.get("Buyer Paid Shipping Fee")).getStringCellValue());
+    	 
+    	 client.setBillingAddress(currentRow.getCell(cellno.get("Delivery Address")).getStringCellValue());
+    	 client.setContactNo(currentRow.getCell(cellno.get("Phone Number")).getStringCellValue());
+    	 if(client.getContactNo().equals("60355453789")) {
+    		 isSG = true;
+    	 }
+    	 if(isSG) {
+    		 String[] BuyerInfo =  currentRow.getCell(cellno.get("Remark from buyer")).getStringCellValue().split("]");
+
+    		 for(int i =0;i<BuyerInfo.length;i++) {
+    			 if(BuyerInfo[i].split(": ")[0].toString().trim().contains("SG Order SN")) {
+    				 payment.setOrderId(payment.getOrderId().trim() + "/" + BuyerInfo[i].split(": ")[1].toString().trim());		 
+    			 }
+    		 }
+    	 }
+
+
+        
+	  	  payment.setClient(clients.get(rowNumber-1));
+	  	  paymentCredit =  paymentCredit + shippingFees;
+	  	  payment.setPaymentCredit(df.format(paymentCredit));
+	  	  payment.setPaymentFees(df.format(paymentFees));
+	  	  payment.setCommissionFees(df.format(comissionFees));
+	  	  payment.setOthersFees(df.format(otherFees));
+	  	  paymentDue = paymentCredit + paymentFees + otherFees + comissionFees;
+//	  	  paymentDue = paymentDue -voucher;
+	  	  payment.setPaymentDue(df.format(paymentDue));
+	  	  
+	  	  Payment p = payments.stream().filter(o -> o.getOrderId().equals(payment.getOrderId())).findFirst().orElse(null);
+	  	  if(p ==null) {
+	  		if(isCancelled) {
 	  			payments.add(payment);
 	         }
 	  			  

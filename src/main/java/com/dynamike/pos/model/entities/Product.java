@@ -35,12 +35,30 @@ public class Product implements Serializable {
     
     @Column(name = "name")
     private String name;
+
+    @Column(name = "stock")
+    private String stock;
+
+    @Column(name = "unit_cost")
+    private String unit_cost;
+    
+    @Column(name = "total_stock")
+    private String total_stock;
     
     @OneToOne(fetch=FetchType.EAGER)
     @JoinColumn(name = "code", insertable=false, updatable=false,referencedColumnName="id")
     private SimpleItem item;
 
-    public String getId() {
+
+    public String getUnit_cost() {
+		return unit_cost;
+	}
+
+	public void setUnit_cost(String unit_cost) {
+		this.unit_cost = unit_cost;
+	}
+
+	public String getId() {
         return id;
     }
 
@@ -70,6 +88,21 @@ public class Product implements Serializable {
     public void setItem(SimpleItem item) {
         this.item = item;
     }
+    public String getStock() {
+		return stock;
+	}
+
+	public void setStock(String stock) {
+		this.stock = stock;
+	}
+
+	public String getTotal_stock() {
+		return total_stock;
+	}
+
+	public void setTotal_stock(String total_stock) {
+		this.total_stock = total_stock;
+	}
     
     @Override
     public int hashCode() {

@@ -54,7 +54,7 @@ public class Payment {
     private String balance;
     
     @Column(name = "payment_due")
-    private float paymentDue;
+    private String paymentDue;
     
 //    @Column(name = "payment_type")
 //    private String paymentType;
@@ -69,10 +69,15 @@ public class Payment {
     @Column(name = "shipping_fees")
     private String shippingFees;
     
+//    @Transient
+    @Column(name = "commission_fees")
+    private String commissionFees;
+    
     @Column(name = "other_fees")
     private String otherFees;    
     
-    @Column(name = "discount")
+
+	@Column(name = "discount")
     private String discount;
     
     @Column(name = "free_shipping")
@@ -168,11 +173,11 @@ public class Payment {
         this.balance = balance;
     }
     
-    public float getPaymentDue() {
+    public String getPaymentDue() {
         return paymentDue;
     }
 
-    public void setPaymentDue(float paymentDue) {
+    public void setPaymentDue(String paymentDue) {
         this.paymentDue = paymentDue;
     }
     
@@ -191,6 +196,14 @@ public class Payment {
     public void setPaymentFees(String paymentFees) {
         this.paymentFees = paymentFees;
     }
+    
+    public String getCommissionFees() {
+		return commissionFees;
+	}
+
+	public void setCommissionFees(String commissionFees) {
+		this.commissionFees = commissionFees;
+	}
     
     public String getOthersFees() {
         return otherFees;

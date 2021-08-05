@@ -3,6 +3,7 @@ package com.dynamike.pos.service;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -26,6 +27,7 @@ import com.google.common.collect.Lists;
 @Service
 @Transactional
 public class DatabaseService {
+	DecimalFormat df = new DecimalFormat("0.00");
 	@Autowired
 	ProuctCheckRepository product_check_repos;
 	
@@ -100,6 +102,15 @@ public class DatabaseService {
 		stockcheck_repos.saveAll(stockchecks);
 	}
 	
+	public List<StockCheck> getStockCheckDate(Integer year, Integer month) throws Exception {
+		return stockcheck_repos.getStockCheckDate(year,month);
+	}
+
+	public List<StockCheck> getStockCheckByDate(String strDate) throws Exception {
+
+		return stockcheck_repos.getStockCheckByDate(strDate+"%");
+	}
+	
 	public List<ProductCheck> checkStockConflict(String strDate) throws Exception {
 		List<ProductCheck> productchecks = inventory_repos.getStock();
 		java.text.DateFormat dateFormat;
@@ -111,12 +122,12 @@ public class DatabaseService {
 			date = dateFormat.parse(strDate);
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+//			e.printStackTrace();
 		}
 //		dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss");	
 //		String sDate = dateFormat.format(date);
 		for(ProductCheck p :productchecks) {
-			List<StockCheck> ss = stockcheck_repos.getStockCheck(p.getCode());
+			List<StockCheck> ss = stockcheck_repos.getStockCheck(p.getId());
 			StockCheck s = null;
 			for(StockCheck c: ss) {
 				if(c.getDate().equals(strDate)) {
@@ -200,8 +211,12 @@ public class DatabaseService {
 		return purchaseslist_repos.getPurchaseItemListsByPurchaseId(id);
 	}
 	
-	public List<ExpiredCheck> getPurchaseItemListsByExpired(){
-		return purchaseslist_repos.getPurchaseItemListsByExpired();
+	public List<ExpiredCheck> getExpiredItemListsbyCode(String code){
+		return expiredcheck_repos.getExpiredItemListsbyCode(code);
+	}
+	
+	public List<ExpiredCheck> getExpiredItemLists(Integer year, Integer month){
+		return expiredcheck_repos.getExpiredItemLists(year, month);
 	}
 	
 	public void setPurchaseItemListsWithExpired(ExpiredCheck purchaseItem){
@@ -243,6 +258,17 @@ public class DatabaseService {
 		return payment_repos.getPaymentsByYearMonth(year,month,types);
 	}
 	
+	public List<Object[]> getOrderSummaryDaily(){
+		List<Object[]> result = Lists.newArrayList();
+		result = payment_repos.getOrderSummaryDaily(2021,7,null);
+		return result;
+	}
+	
+	public List<Object[]> getOrderSummaryByWeek(){
+		List<Object[]> result = Lists.newArrayList();
+		result = payment_repos.getOrderSummaryByWeek(2021, null);
+		return result;
+	}
 	
 	public List<Client> getClients() {
 		return client_repos.getClients();
@@ -358,6 +384,7 @@ public class DatabaseService {
 	      client_repos.saveAll(listWithoutDuplicates);
 	      List<Payment> payments = ExcelLazadaHelper.excelLazadaToTransaction(file.getInputStream(),excel,clients);
 	      saveAllPayment(payments);
+	      cancelOrderItems(payments);
 	      List<OrderList> orderitems = ExcelLazadaHelper.excelLazadaToOrderList(file.getInputStream(),excel);
 	      addOrderItems(orderitems);
 	      file.getInputStream().close();
@@ -378,6 +405,7 @@ public class DatabaseService {
 	      client_repos.saveAll(clients);
 	      List<Payment> payments = ExcelShopeeHelper.excelShopeeToTransaction(file.getInputStream(),excel,clients);
 	      saveAllPayment(payments);
+	      List<Payment> cancelledPayments = ExcelShopeeHelper.excelShopeeToCancelledTransaction(file.getInputStream(),excel,clients);
 	      List<OrderList> orderitems = ExcelShopeeHelper.excelShopeeToOrderList(file.getInputStream(),excel);
 	      addOrderItems(orderitems);
 	      file.getInputStream().close();
@@ -398,6 +426,29 @@ public class DatabaseService {
 		payment_repos.saveAll(payments);
 		
 	}
+	public void cancelOrderItems(
+			List<Payment> payments
+            ) throws Exception {
+		for(Payment payment :payments) {
+        	List<OrderList> o = orderlist_repos.getOrderItemListsById(payment.getOrderId());
+        	
+    		for(OrderList ol : o) {
+    			
+    			Inventory product = getProductByCode(ol.getItemId());
+    			if(product!=null) {
+                	Double total = Double.parseDouble(product.getTotalStock()==null?"0.0":product.getTotalStock());
+                	Integer stock = Integer.parseInt(product.getStock()==null?"0":product.getStock());
+                	stock += ol.getQuantity();
+                	total = Double.parseDouble(product.getUnitCost()) * stock;
+                	product.setStock(stock.toString());
+                	product.setTotalStock(df.format(total));
+                	updateProduct(product);
+    			}
+            	deleteOrderItem(ol);
+    		}
+        		
+        }
+	}
 	public void addOrderItems(
 			List<OrderList> orderitems
             ) throws Exception {
@@ -412,7 +463,7 @@ public class DatabaseService {
             	stock += ol.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	updateProduct(product);
             	deleteOrderItem(ol);
     		}
@@ -427,26 +478,29 @@ public class DatabaseService {
         			orderStock =0;
                 	total = Double.parseDouble(product.getUnitCost()) * stock;
                 	product.setStock(stock.toString());
-                	product.setTotalStock(String.valueOf(total));
+                	product.setTotalStock(df.format(total));
                 	updateProduct(product);
+
+            		Double unitCost = Double.parseDouble(product.getUnitCost()==null?"0":product.getUnitCost());
+            		Double totalCost = unitCost * orderitem.getQuantity();
+            		orderitem.setUnitPrice(df.format(unitCost));
+            		orderitem.setTotalPrice(df.format(totalCost));
                 	break;
         		}else {
         			orderStock =orderStock - stock;
         			stock = 0;
         			total = Double.parseDouble(product.getUnitCost()) * stock;
                 	product.setStock(stock.toString());
-                	product.setTotalStock(String.valueOf(total));
+                	product.setTotalStock(df.format(total));
                 	updateProduct(product);
+
+            		Double unitCost = Double.parseDouble(product.getUnitCost()==null?"0":product.getUnitCost());
+            		Double totalCost = unitCost * orderitem.getQuantity();
+            		orderitem.setUnitPrice(df.format(unitCost));
+            		orderitem.setTotalPrice(df.format(totalCost));
         		}
+        		
         	}
-//        	Inventory product = getProductByCode(orderitem.getItemId());
-//        	Double total = Double.parseDouble(product.getTotalStock()==null?"0.0":product.getTotalStock());
-//        	Integer stock = Integer.parseInt(product.getStock()==null?"0":product.getStock());
-//        	stock -= orderitem.getQuantity();
-//        	total = Double.parseDouble(product.getUnitCost()) * stock;
-//        	product.setStock(stock.toString());
-//        	product.setTotalStock(String.valueOf(total));
-//        	updateProduct(product);
         	createOrderItem(orderitem);
         }
     }
@@ -455,10 +509,23 @@ public class DatabaseService {
 		return item_repos.getItemProductsById(id);
 	}
 	
+	public Inventory getProductById(String code){
+		List<Inventory> invetories = inventory_repos.getListProductById(code);
+		if(invetories.size()>0) {
+			return invetories.get(0);	
+		}else {
+			return null;
+		}
+		
+	}
+	
 	public Inventory getProductByCode(String code){
 		List<Inventory> invetories = inventory_repos.getListProductByCode(code);
 //		return inventory_repos.getProductByCode(code);
-		return invetories.get(0);
+		if(invetories.size()>0) {
+			return invetories.get(0);	
+		}
+		return null;
 	}
 	
 	public List<Inventory> getListProductByCode(String code){
@@ -470,7 +537,15 @@ public class DatabaseService {
 	}
 	
 	public Inventory getProductByCodeSupplierId(String code, Integer id){
-		return inventory_repos.getProductByCodeSupplierId(code, id);
+		List<Inventory> products = inventory_repos.getProductByCodeSupplierId(code, id);
+		
+		if(products.size() >0) {
+			return products.get(0);	
+		}else {
+			System.out.println("Code :" + code +", Supplier:" + id);	
+		}
+		
+		return null;
 	}
 	
 	public Payment addTransaction(Payment payment) {
@@ -690,7 +765,7 @@ public class DatabaseService {
 	    
 		return report;
 	}
-	
+
 	public List<DetailReport> getDetailReport(Integer year) {
 		List<DetailReport> detailReports = Lists.newArrayList();
 
@@ -719,19 +794,75 @@ public class DatabaseService {
 			DetailReport detailReport = new DetailReport();
 			float investment = DatabaseService.roundFloat(purchase_repos.getInvestmentValueByMonth(year,i),2);
 			bfinventorycash +=investment;
-			float sales = DatabaseService.roundFloat(payment_repos.getReportByMonth(year,i),2);
+			float sales = DatabaseService.roundFloat(payment_repos.getReportDueByMonth(year,i),2);
+			float netsales = 0l;
 			float expenses = DatabaseService.roundFloat(purchase_repos.getReportbyMonth(year,i),2);
 			float invcash = DatabaseService.roundFloat(purchase_repos.getInventoryCashValue(year,i),2);
 			Integer lazada = payment_repos.getOrderReportbyMonth(year,i,1);
 			Integer shopee = payment_repos.getOrderReportbyMonth(year,i,2);
 			Integer local = payment_repos.getOrderReportbyMonth(year,i,3);
 			Integer orderCount = lazada + shopee +local;
+			
+			
 			detailReport.setSale(sales);
 			detailReport.setLazada(lazada);
 			detailReport.setShopee(shopee);
 			detailReport.setLocalShop(local);
 			detailReport.setOrderCount(orderCount);
 			detailReport.setExpenditure(expenses);	
+			
+			float expenditureTotalAmount = purchase_repos.getTotalExpenditure(year,i);
+			List<Object[]> expenditures = purchase_repos.getExpenditure(year,i);
+			for(Object[] expenditure : expenditures) {
+				switch(Integer.parseInt(expenditure[0].toString())) {
+					case 2:{
+						detailReport.setPackages(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 3:{
+						detailReport.setAdvertisement(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 5:{
+						detailReport.setRefund(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 6:{
+//						detailReport.set(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 7:{
+//						detailReport.setPackages(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+				}
+			}
+			
+			
+			
+			float lazadacogs = 0f;
+			try {
+				lazadacogs = DatabaseService.roundFloat(payment_repos.getCOGS(year,i,1),2);	
+			}catch(Exception e) {
+				
+			}
+			
+			float shopeecogs = 0f;
+			try {
+				shopeecogs = DatabaseService.roundFloat(payment_repos.getCOGS(year,i,2),2);	
+			}catch(Exception e) {
+				
+			}
+			
+			float cogs = 0f;
+			try {
+				cogs = DatabaseService.roundFloat(payment_repos.getCOGS(year,i,null),2);	
+			}catch(Exception e) {
+				
+			}
+			detailReport.setShopeecogs(shopeecogs);
+			detailReport.setLazadacogs(lazadacogs);
+			detailReport.setCogs(cogs);
 			
 			
 	        java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("MM");
@@ -767,13 +898,201 @@ public class DatabaseService {
 		        	}
 		        	
 					earned = bfinventorycash - invcash - accEarned;
+//	        		earned = netsales -cogs - expenditureTotalAmount;
 		        	accEarned+=earned;
 		        	detailReport.setEarned(DatabaseService.roundFloat(-earned,2));
+//		        	detailReport.setEarned(DatabaseService.roundFloat(earned,2));
 		        }
         	}else {
 
 	        	detailReport.setEarned(DatabaseService.roundFloat(0,2));	
+
+//        		earned = netsales -cogs - expenditureTotalAmount;
+//	        	detailReport.setEarned(DatabaseService.roundFloat(earned,2));
         	}
+        	detailReport.setMonthExpenditure(expenditureTotalAmount);
+			detailReport.setBalance(DatabaseService.roundFloat(balance,2));
+			detailReport.setInventoryCash(invcash);
+			
+			detailReport.setMonth(i);
+			detailReports.add(detailReport);
+		}
+		
+		return detailReports;
+	}
+
+	public List<DetailReport> getSummaryDetailReport(Integer year) {
+		List<DetailReport> detailReports = Lists.newArrayList();
+
+		List<Integer> years = Lists.newArrayList(year);
+		List<Integer> accountYears = purchase_repos.getAccountYears();
+		float bfinventorycash = 0l;
+		if(accountYears.contains(year-1)) {
+	    	List<Integer> previousyears = Lists.newArrayList(year-1);
+	    	
+	    	float bfdividend = DatabaseService.roundFloat(purchase_repos.getYearlyDividendPaidValue(previousyears), 2);
+		    float bfinvestment = DatabaseService.roundFloat(purchase_repos.getYearlyInvestmentValue(previousyears), 2);
+		    float bfopenAccount = DatabaseService.roundFloat(purchase_repos.getOpenBankAccountValue(previousyears), 2);    
+		    float bfexpenses= DatabaseService.roundFloat(purchase_repos.getExpenditureByYear(previousyears), 2);
+		    float bfsales = DatabaseService.roundFloat(payment_repos.getLatestSalesbyYear(previousyears), 2);		    
+		    float bfcash = 0l;
+		    bfinventorycash = (bfsales + bfinvestment + bfopenAccount + bfdividend) - bfexpenses;
+		    bfinventorycash = DatabaseService.roundFloat(bfinventorycash, 2);
+		    	    	
+		    float bfinventory = DatabaseService.roundFloat(purchase_repos.getInventoryValue(previousyears), 2);	    		
+		    bfcash = bfinventorycash - bfinventory;
+		    
+	    }
+		float accEarned =  0l;
+		for(Integer i = 1; i <=12 ; i++) {
+			float earned =  0l;
+			DetailReport detailReport = new DetailReport();
+			float investment = DatabaseService.roundFloat(purchase_repos.getInvestmentValueByMonth(year,i),2);
+			bfinventorycash +=investment;
+			float sales = DatabaseService.roundFloat(payment_repos.getReportByMonth(year,i),2);
+			float netsales = 0l;
+			float expenses = DatabaseService.roundFloat(purchase_repos.getReportbyMonth(year,i),2);
+			float invcash = DatabaseService.roundFloat(purchase_repos.getInventoryCashValue(year,i),2);
+			Integer lazada = payment_repos.getOrderReportbyMonth(year,i,1);
+			Integer shopee = payment_repos.getOrderReportbyMonth(year,i,2);
+			Integer local = payment_repos.getOrderReportbyMonth(year,i,3);
+			Integer orderCount = lazada + shopee +local;
+			
+			
+			detailReport.setSale(sales);
+			detailReport.setLazada(lazada);
+			detailReport.setShopee(shopee);
+			detailReport.setLocalShop(local);
+			detailReport.setOrderCount(orderCount);
+			detailReport.setExpenditure(expenses);	
+			
+			float expenditureTotalAmount = purchase_repos.getTotalExpenditure(year,i);
+			List<Object[]> expenditures = purchase_repos.getExpenditure(year,i);
+			for(Object[] expenditure : expenditures) {
+				switch(Integer.parseInt(expenditure[0].toString())) {
+					case 2:{
+						detailReport.setPackages(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 3:{
+						detailReport.setAdvertisement(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 5:{
+						detailReport.setRefund(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 6:{
+//						detailReport.set(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+					case 7:{
+//						detailReport.setPackages(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
+				}
+			}
+			
+			List<Object[]> buckets = payment_repos.getPaymentBuckets(year,i, null);
+
+//			sum(payment_credit) as credit, 
+//			sum(payment_fees) as fees, 
+//			sum(commission_fees) as commission, 
+//			sum(shipping_fees) as shipping, 
+//			sum(other_fees) as other, 
+//			sum(payment_due) as due  
+			for(Object[] bucket : buckets) {				
+				if(bucket[1] !=null) {
+					detailReport.setPaymentFees(DatabaseService.roundFloat(Float.parseFloat(bucket[1].toString()),2));	
+				}
+				if(bucket[2] !=null) {
+					detailReport.setCommissionFees(DatabaseService.roundFloat(Float.parseFloat(bucket[2].toString()),2));	
+				}
+				if(bucket[3] !=null) {
+					detailReport.setShippingFees(DatabaseService.roundFloat(Float.parseFloat(bucket[3].toString()),2));	
+				}
+				if(bucket[4] !=null) {
+					detailReport.setOtherFees(DatabaseService.roundFloat(Float.parseFloat(bucket[4].toString()),2));	
+				}
+				if(bucket[5] !=null) {
+					detailReport.setNetsales(DatabaseService.roundFloat(Float.parseFloat(bucket[5].toString()),2));
+					netsales = DatabaseService.roundFloat(Float.parseFloat(bucket[5].toString()),2);
+				}
+			}
+			
+			
+			
+			float lazadacogs = 0f;
+			try {
+				lazadacogs = DatabaseService.roundFloat(payment_repos.getCOGS(year,i,1),2);	
+			}catch(Exception e) {
+				
+			}
+			
+			float shopeecogs = 0f;
+			try {
+				shopeecogs = DatabaseService.roundFloat(payment_repos.getCOGS(year,i,2),2);	
+			}catch(Exception e) {
+				
+			}
+			
+			float cogs = 0f;
+			try {
+				cogs = DatabaseService.roundFloat(payment_repos.getCOGS(year,i,null),2);	
+			}catch(Exception e) {
+				
+			}
+			detailReport.setShopeecogs(shopeecogs);
+			detailReport.setLazadacogs(lazadacogs);
+			detailReport.setCogs(cogs);
+			
+			
+	        java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("MM");
+	        String strMonth = dateFormat.format(new Date());
+	        dateFormat = new java.text.SimpleDateFormat("yyyy");  
+	        String strYear = dateFormat.format(new Date());
+
+			float balance = sales - expenses;
+        	if(year==Integer.parseInt(strYear)) {
+		        if(i>Integer.parseInt(strMonth)) {
+		        	detailReport.setEarned(DatabaseService.roundFloat(0,2));	
+		        }
+		        else{
+	        		if(i==Integer.parseInt(strMonth)) {
+
+		        		float bfInvcash = DatabaseService.roundFloat(purchase_repos.getInventoryCashValue(year,i-1),2);
+		        		float bfstocks = DatabaseService.roundFloat(purchase_repos.getInventoryValue(year,i-1),2);
+		        		float cash = (bfInvcash - bfstocks) + sales - expenses + investment;
+			        	float stocks = DatabaseService.roundFloat(inventory_repos.getInventoryValue(),2);
+//		        		stocks = DatabaseService.roundFloat(inventory_repos.getInventoryValue(),2);
+			        	invcash = cash+stocks;
+			        	detailReport.setStocks(stocks);
+			        	detailReport.setInventoryCash(invcash);
+		        	}else {
+		        		float bfstocks = 0f;
+		        		try {
+		        			bfstocks = DatabaseService.roundFloat(purchase_repos.getInventoryValue(year,i),2);	
+		        		}catch(Exception ex) {
+		        			bfstocks = DatabaseService.roundFloat(0f,2);
+		        		}
+			        	detailReport.setStocks(bfstocks);
+		        		
+		        	}
+		        	
+//					earned = bfinventorycash - invcash - accEarned;
+	        		earned = netsales -cogs - expenditureTotalAmount;
+		        	accEarned+=earned;
+//		        	detailReport.setEarned(DatabaseService.roundFloat(-earned,2));
+		        	detailReport.setEarned(DatabaseService.roundFloat(earned,2));
+		        }
+        	}else {
+
+//	        	detailReport.setEarned(DatabaseService.roundFloat(0,2));	
+
+        		earned = netsales -cogs - expenditureTotalAmount;
+	        	detailReport.setEarned(DatabaseService.roundFloat(earned,2));
+        	}
+        	detailReport.setMonthExpenditure(expenditureTotalAmount);
 			detailReport.setBalance(DatabaseService.roundFloat(balance,2));
 			detailReport.setInventoryCash(invcash);
 			

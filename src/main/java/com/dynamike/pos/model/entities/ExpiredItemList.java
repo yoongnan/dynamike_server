@@ -20,16 +20,12 @@ import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.OrderBy;
 import javax.persistence.Table;
-import javax.persistence.Transient;
 import javax.persistence.Lob;
-import javax.persistence.ManyToMany;
 import javax.persistence.ManyToOne;
 
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.Where;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 /**
  *
  * @author bysadmin
@@ -37,28 +33,18 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 @Entity
 @Cache(usage = CacheConcurrencyStrategy.READ_WRITE)
 @Table(name = "purchase_items")
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class ExpiredCheck {
-    
-	@Id
+public class ExpiredItemList {
+    @Id
     @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-	
-	@OneToOne(fetch=FetchType.EAGER)
-    @JoinColumn(name = "purchase_id", insertable=false, updatable=false,referencedColumnName="id")
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumn(name = "purchase_id")
     private Purchase purchase;
-	
-//    @Column(name = "purchase_id")
-//    private String purchaseId;
-    
-//    @Column(name = "product_code")
-//    private String productCode;
-	
-	@ManyToOne(fetch=FetchType.EAGER)
-    @JoinColumn(name = "product_code", insertable=false, updatable=false,referencedColumnName="id")
-    private Product product;
+        
+    @Column(name = "product_code")
+    private String productCode;
 
     @Column(name = "quantity")
     private Integer quantity;
@@ -83,34 +69,18 @@ public class ExpiredCheck {
     public Purchase getPurchase() {
         return purchase;
     }
-    
+
     public void setPurchase(Purchase purchase) {
         this.purchase = purchase;
     }
     
-//    public String getPurchaseId() {
-//        return purchaseId;
-//    }
-//
-//    public void setPurchaseId(String purchaseId) {
-//        this.purchaseId = purchaseId;
-//    }
-    
-    public Product getProduct() {
-        return product;
+    public String getProductCode() {
+        return productCode;
     }
-    
-    public void setProduct(Product product) {
-        this.product = product;
+
+    public void setProductCode(String productCode) {
+        this.productCode = productCode;
     }
-    
-//    public String getProductCode() {
-//        return productCode;
-//    }
-//
-//    public void setProductCode(String productCode) {
-//        this.productCode = productCode;
-//    }
     
     public Integer getQuantity() {
         return quantity;
@@ -152,7 +122,7 @@ public class ExpiredCheck {
             return false;
         if (getClass() != obj.getClass())
             return false;
-        PurchaseItemList other = (PurchaseItemList) obj;
+        ExpiredItemList other = (ExpiredItemList) obj;
         if (getId() == null) {
             if (other.getId() != null)
                 return false;

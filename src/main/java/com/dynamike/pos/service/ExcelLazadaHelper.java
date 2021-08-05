@@ -6,7 +6,9 @@ import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -24,6 +26,7 @@ import com.dynamike.pos.model.entities.OrderList;
 import com.dynamike.pos.model.entities.Payment;
 import com.dynamike.pos.model.entities.PaymentType;
 import com.dynamike.pos.model.entities.ProviderSource;
+import com.google.common.collect.Maps;
 
 
 public class ExcelLazadaHelper {
@@ -41,7 +44,24 @@ public class ExcelLazadaHelper {
 
     return true;
   }
+  public static void checkCellColumn(Sheet sheet,List<String> colNames,HashMap<String,Integer> cellno) {
+	  Iterator<Cell> cellsInRow = sheet.getRow(0).iterator();
+
+      int cellIdx = 0;
+      int size = colNames.size();
+      while (cellsInRow.hasNext()) { 
+          if(colNames.indexOf(sheet.getRow(0).getCell(cellIdx).getStringCellValue()) != -1) {
+        	  cellno.put(colNames.get(colNames.indexOf(sheet.getRow(0).getCell(cellIdx).getStringCellValue())), cellIdx);
+        	  size--;
+        	  if(size ==0) {
+        		  break;
+        	  }
+          }
+          cellIdx++;
+      }	
+  }
   public static List<OrderList> excelLazadaToOrderList(InputStream is, String excel) {
+	  DecimalFormat df = new DecimalFormat("0.00");
 	    try {
 	    	Sheet sheet;
 	    	Workbook workbook = null;
@@ -56,33 +76,41 @@ public class ExcelLazadaHelper {
 	      Iterator<Row> rows = sheet.iterator();
 
 	      List<OrderList> orders = new ArrayList<OrderList>();
+	      List<String> colNames = Arrays.asList("status","orderNumber","paidPrice","itemName");
+	      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
 
+	      checkCellColumn(sheet,colNames,cellno);
+	      
 	      int rowNumber = 0;
 	      while (rows.hasNext()) {
 	        Row currentRow = rows.next();
-
-	        if(!currentRow.getCell(64).getStringCellValue().toLowerCase().equals("canceled") && !currentRow.getCell(64).getStringCellValue().toLowerCase().trim().equals("")) {
-		        // skip header
-		        if (rowNumber == 0) {
-		          rowNumber++;
-		          continue;
-		        }
-	
-		        Iterator<Cell> cellsInRow = currentRow.iterator();
-	
-		        OrderList order = orders.stream().filter(o -> o.getInvoiceId().equals(currentRow.getCell(12).getStringCellValue()) 
-		        		&& o.getItemId().equals(currentRow.getCell(50).getStringCellValue().split("-")[0].trim())
-		        		).findFirst().orElse(null);
-		        if(order !=null) {
-	        		order.setQuantity(order.getQuantity()+1);
-		        }else {
-		        	order = new OrderList();
-			        order.setQuantity(1);
-			        order.setInvoiceId(currentRow.getCell(12).getStringCellValue());
-			        order.setItemId(currentRow.getCell(50).getStringCellValue().split("-")[0].trim());	
-			        orders.add(order);
-		        }
-	  	  	}
+	        
+	        if(!currentRow.getCell(cellno.get("status")).getStringCellValue().toLowerCase().equals("canceled") && !currentRow.getCell(cellno.get("status")).getStringCellValue().toLowerCase().trim().equals("")) {
+  		        // skip header
+  		        if (rowNumber == 0) {
+  		          rowNumber++;
+  		          continue;
+  		        }  	
+  		        String itemId = currentRow.getCell(cellno.get("itemName")).getStringCellValue().split("-")[0].trim().split(" ")[0].trim();
+  		        itemId = itemId.split(" ")[0].trim();
+  		        OrderList order = orders.stream().filter(o -> o.getInvoiceId().equals(currentRow.getCell(cellno.get("orderNumber")).getStringCellValue()) 
+  		        		&& o.getItemId().equals(currentRow.getCell(cellno.get("itemName")).getStringCellValue().split("-")[0].trim().split(" ")[0].trim())
+  		        		).findFirst().orElse(null);
+  		        if(order !=null) {
+  			        Float paymentCredit = Float.parseFloat(order.getSellingPrice());
+  			        paymentCredit += Float.parseFloat(currentRow.getCell(cellno.get("paidPrice")).getStringCellValue()) ;
+  		        	order.setSellingPrice(df.format(paymentCredit));
+  	        		order.setQuantity(order.getQuantity()+1);
+  		        }else {
+  		        	order = new OrderList();
+  			        order.setQuantity(1);
+  			        Float paymentCredit = Float.parseFloat(currentRow.getCell(cellno.get("paidPrice")).getStringCellValue()) ;
+  			        order.setSellingPrice(df.format(paymentCredit));
+  			        order.setInvoiceId(currentRow.getCell(cellno.get("orderNumber")).getStringCellValue());
+  			        order.setItemId(itemId);	
+  			        orders.add(order);
+  		        }
+  	  	  	}
 	          rowNumber++;
 	      }
 
@@ -114,6 +142,15 @@ public class ExcelLazadaHelper {
 	      Iterator<Row> rows = sheet.iterator();
 
 	      List<Client> clients = new ArrayList<Client>();
+	      
+
+
+	      List<String> colNames = Arrays.asList("status","orderNumber","itemName","paidPrice",
+	    		  "sellerDiscountTotal","shippingFee","billingPhone","shippingPhone","createTime","customerName",
+	    		  "customerEmail","shippingAddress","billingAddr");
+	      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+	      checkCellColumn(sheet,colNames,cellno);
 
 	      int rowNumber = 0;
 	      while (rows.hasNext()) {
@@ -129,15 +166,15 @@ public class ExcelLazadaHelper {
 
 //	        while (cellsInRow.hasNext()) {
 	        Client client = new Client();
-	        String phoneno = currentRow.getCell(37).getStringCellValue();
+	        String phoneno = currentRow.getCell(cellno.get("billingPhone")).getStringCellValue();
 	        if(phoneno.equals("")) {
-	        	phoneno = currentRow.getCell(25).getStringCellValue();
+	        	phoneno = currentRow.getCell(cellno.get("shippingPhone")).getStringCellValue();
 	        }
 	        client.setId(phoneno);
 	        client.setContactNo(phoneno);
-	        client.setName(currentRow.getCell(16).getStringCellValue() + currentRow.getCell(17).getStringCellValue());
-	        client.setShippingAddress(currentRow.getCell(20).getStringCellValue());
-	        client.setBillingAddress(currentRow.getCell(32).getStringCellValue());
+	        client.setName(currentRow.getCell(cellno.get("customerName")).getStringCellValue() + currentRow.getCell(cellno.get("customerEmail")).getStringCellValue());
+	        client.setShippingAddress(currentRow.getCell(cellno.get("shippingAddress")).getStringCellValue());
+	        client.setBillingAddress(currentRow.getCell(cellno.get("billingAddr")).getStringCellValue());
 
 //	        16 CLient Name
 //	        17 Email
@@ -186,6 +223,7 @@ public class ExcelLazadaHelper {
 		  try {
 			  List<Payment> payments = new ArrayList<Payment>();
 
+			  
 		      int rowNumber = 0;
 			  while ((line = br.readLine()) != null) {
 				  // skip header
@@ -217,9 +255,9 @@ public class ExcelLazadaHelper {
 			      	  	otherFees =  Float.parseFloat(strPayment[9].equals("")?"0":strPayment[9]);
 			      	  	payment.setOthersFees(df.format(otherFees));
 			      	  	
-			      	  	Float paymentDue = payment.getPaymentDue();
+			      	  	Float paymentDue = Float.parseFloat(payment.getPaymentDue());
 			      	  	paymentDue +=  Float.parseFloat(strPayment[10].equals("")?"0":strPayment[10]);
-			      	  	payment.setPaymentDue(paymentDue);
+			      	  	payment.setPaymentDue(df.format(paymentDue));
 			        }else {
 			        	payment = new Payment();
 			            Float paymentCredit = 0f;
@@ -244,7 +282,7 @@ public class ExcelLazadaHelper {
 			      	  	payment.setPaymentCredit(df.format(paymentCredit));
 			      	  	payment.setShippingFees(df.format(shippingFees));
 			      	  	paymentDue =  Float.parseFloat(strPayment[10].equals("")?"0":strPayment[10]);
-			      	  	payment.setPaymentDue(paymentDue);
+			      	  	payment.setPaymentDue(df.format(paymentDue));
 			      	  	if(strPayment.length==14) {
 			      	  		payment.setStatus(strPayment[13]);	
 			      	  	}
@@ -277,6 +315,13 @@ public class ExcelLazadaHelper {
 
 		      List<Payment> payments = new ArrayList<Payment>();
 
+		      List<String> colNames = Arrays.asList("Payout Status","Payout Amount","Other","Promotions",
+		    		  "Shipping Cost","Customer Shipping Fee","Payment Fee","Commission","Unit Price","Order Status",
+		    		  "Statement Numbers","Order No.");
+		      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+		      checkCellColumn(sheet,colNames,cellno);
+		      
 		      int rowNumber = 0;
 		      while (rows.hasNext()) {
 		    	  Row currentRow = rows.next();
@@ -286,59 +331,66 @@ public class ExcelLazadaHelper {
 		    		 continue;
 		    	  }
 		    	  
-		    	  Payment payment = payments.stream().filter(o -> o.getOrderId().equals(currentRow.getCell(0).getStringCellValue())).findFirst().orElse(null);
-		    	  if(!currentRow.getCell(13).getStringCellValue().equals("")) {
+		    	  Payment payment = payments.stream().filter(o -> o.getOrderId().equals(currentRow.getCell(cellno.get("Order No.")).getStringCellValue())).findFirst().orElse(null);
+		    	  if(!currentRow.getCell(cellno.get("Payout Status")).getStringCellValue().equals("")) {
 		    		if(payment !=null) {
 
 		    			Float paymentCredit = Float.parseFloat(payment.getPaymentCredit());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(3).getStringCellValue().equals("")?"0":currentRow.getCell(3).getStringCellValue());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(8).getStringCellValue().equals("")?"0":currentRow.getCell(8).getStringCellValue());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(6).getStringCellValue().equals("")?"0":currentRow.getCell(6).getStringCellValue());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(9).getStringCellValue().equals("")?"0":currentRow.getCell(9).getStringCellValue());
+		    			paymentCredit += Float.parseFloat(currentRow.getCell(cellno.get("Unit Price")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Unit Price")).getStringCellValue());
+		    			paymentCredit += Float.parseFloat(currentRow.getCell(cellno.get("Promotions")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Promotions")).getStringCellValue());
 		    			payment.setPaymentCredit(df.format(paymentCredit));
+		    			
+		    			Float commissionFees = Float.parseFloat(payment.getCommissionFees());
+		    			commissionFees = Float.parseFloat(currentRow.getCell(cellno.get("Commission")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Commission")).getStringCellValue());
+		    			payment.setCommissionFees(df.format(commissionFees));
 
+		    			
 		    			Float paymentFees = Float.parseFloat(payment.getPaymentFees());
-		    			paymentFees +=  Float.parseFloat(currentRow.getCell(5).getStringCellValue().equals("")?"0":currentRow.getCell(5).getStringCellValue());
-		    			paymentFees +=  Float.parseFloat(currentRow.getCell(4).getStringCellValue().equals("")?"0":currentRow.getCell(4).getStringCellValue());
+		    			paymentFees +=  Float.parseFloat(currentRow.getCell(cellno.get("Payment Fee")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Payment Fee")).getStringCellValue());
+		    			payment.setPaymentFees(df.format(paymentFees));
 		    			
 		    			Float shippingFees = Float.parseFloat(payment.getShippingFees());
-		    			shippingFees =  Float.parseFloat(currentRow.getCell(7).getStringCellValue().equals("")?"0":currentRow.getCell(7).getStringCellValue());
+		    			shippingFees +=  Float.parseFloat(currentRow.getCell(cellno.get("Customer Shipping Fee")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Customer Shipping Fee")).getStringCellValue());
+		    			shippingFees +=  Float.parseFloat(currentRow.getCell(cellno.get("Shipping Cost")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Shipping Cost")).getStringCellValue());
 		    			payment.setShippingFees(df.format(shippingFees));
 		    			
 		    			Float otherFees = Float.parseFloat(payment.getOthersFees());
-		    			otherFees =  Float.parseFloat(currentRow.getCell(9).getStringCellValue().equals("")?"0":currentRow.getCell(9).getStringCellValue());
+		    			otherFees +=  Float.parseFloat(currentRow.getCell(cellno.get("Other")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Other")).getStringCellValue());
 		    			payment.setOthersFees(df.format(otherFees));
 		    			
-		    			Float paymentDue = payment.getPaymentDue();
-		    			paymentDue +=  Float.parseFloat(currentRow.getCell(10).getStringCellValue().equals("")?"0":currentRow.getCell(10).getStringCellValue());
-		    			payment.setPaymentDue(paymentDue);
+		    			Float paymentDue = Float.parseFloat(payment.getPaymentDue());
+		    			paymentDue +=  Float.parseFloat(currentRow.getCell(cellno.get("Payout Amount")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Payout Amount")).getStringCellValue());
+		    			payment.setPaymentDue(df.format(paymentDue));
 		    		}else {
 		    			payment = new Payment();
 		    			Float paymentCredit = 0f;
+		    			Float commissionFees = 0f;
 		    			Float paymentDue = 0f;
 		    			Float paymentFees = 0f;
 		    			Float shippingFees = 0f;
 		    			Float otherFees = 0f;
-		    			payment.setOrderId(currentRow.getCell(0).getStringCellValue());	    		
+		    			payment.setOrderId(currentRow.getCell(cellno.get("Order No.")).getStringCellValue());	    		
 		    			
-		    			paymentCredit = Float.parseFloat(currentRow.getCell(3).getStringCellValue().equals("")?"0":currentRow.getCell(3).getStringCellValue());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(8).getStringCellValue().equals("")?"0":currentRow.getCell(8).getStringCellValue());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(6).getStringCellValue().equals("")?"0":currentRow.getCell(6).getStringCellValue());
-		    			paymentCredit += Float.parseFloat(currentRow.getCell(9).getStringCellValue().equals("")?"0":currentRow.getCell(9).getStringCellValue());
+		    			paymentCredit = Float.parseFloat(currentRow.getCell(cellno.get("Unit Price")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Unit Price")).getStringCellValue());
+		    			paymentCredit += Float.parseFloat(currentRow.getCell(cellno.get("Promotions")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Promotions")).getStringCellValue());
+		    			commissionFees = Float.parseFloat(currentRow.getCell(cellno.get("Commission")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Commission")).getStringCellValue());
 		    			
-		    			paymentFees =  Float.parseFloat(currentRow.getCell(5).getStringCellValue().equals("")?"0":currentRow.getCell(5).getStringCellValue());
-		    			paymentFees +=  Float.parseFloat(currentRow.getCell(4).getStringCellValue().equals("")?"0":currentRow.getCell(4).getStringCellValue());
-		    			shippingFees =  Float.parseFloat(currentRow.getCell(7).getStringCellValue().equals("")?"0":currentRow.getCell(7).getStringCellValue());
-		    			otherFees =  Float.parseFloat(currentRow.getCell(9).getStringCellValue().equals("")?"0":currentRow.getCell(9).getStringCellValue());
+		    			paymentFees =  Float.parseFloat(currentRow.getCell(cellno.get("Payment Fee")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Payment Fee")).getStringCellValue());
+		    			
+		    			shippingFees =  Float.parseFloat(currentRow.getCell(cellno.get("Customer Shipping Fee")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Customer Shipping Fee")).getStringCellValue());
+		    			shippingFees +=  Float.parseFloat(currentRow.getCell(cellno.get("Shipping Cost")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Shipping Cost")).getStringCellValue());
+		    			
+		    			otherFees =  Float.parseFloat(currentRow.getCell(cellno.get("Other")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("Other")).getStringCellValue());
 
 		    			payment.setOthersFees(df.format(otherFees));
 		    			payment.setPaymentFees(df.format(paymentFees));
 		    			payment.setPaymentCredit(df.format(paymentCredit));
+		    			payment.setCommissionFees(df.format(commissionFees));
 		    			payment.setShippingFees(df.format(shippingFees));
-		    			paymentDue =  Float.parseFloat(currentRow.getCell(10).equals("")?"0":currentRow.getCell(10).getStringCellValue());
-		    			payment.setPaymentDue(paymentDue);
+		    			paymentDue =  Float.parseFloat(currentRow.getCell(cellno.get("Payout Amount")).equals("")?"0":currentRow.getCell(cellno.get("Payout Amount")).getStringCellValue());
+		    			payment.setPaymentDue(df.format(paymentDue));
 		    			
-		    			payment.setStatus(currentRow.getCell(13).getStringCellValue());	
+		    			payment.setStatus(currentRow.getCell(cellno.get("Payout Status")).getStringCellValue());	
 		    			
 		    			
 		    			
@@ -381,7 +433,12 @@ public class ExcelLazadaHelper {
 
       List<Payment> payments = new ArrayList<Payment>();
 
+      List<String> colNames = Arrays.asList("status","orderNumber","itemName","paidPrice","sellerDiscountTotal","shippingFee","billingPhone","shippingPhone","createTime");
+      HashMap<String,Integer> cellno = Maps.newLinkedHashMap();
+
+      checkCellColumn(sheet,colNames,cellno);
       int rowNumber = 0;
+      
       while (rows.hasNext()) {
         Row currentRow = rows.next();
 
@@ -392,20 +449,24 @@ public class ExcelLazadaHelper {
         }
 
 
-  	  	if(!currentRow.getCell(64).getStringCellValue().toLowerCase().equals("canceled") && !currentRow.getCell(64).getStringCellValue().toLowerCase().trim().equals("")) {
+  	  	if(!currentRow.getCell(cellno.get("status")).getStringCellValue().toLowerCase().equals("canceled") && !currentRow.getCell(cellno.get("status")).getStringCellValue().toLowerCase().trim().equals("")) {
   	  		
-	        Payment payment = payments.stream().filter(o -> o.getOrderId().equals(currentRow.getCell(12).getStringCellValue())).findFirst().orElse(null);
+	        Payment payment = payments.stream().filter(o -> o.getOrderId().equals(currentRow.getCell(cellno.get("orderNumber")).getStringCellValue())).findFirst().orElse(null);
 	        if(payment !=null) {
 	
 	            Float paymentCredit = Float.parseFloat(payment.getPaymentCredit());
-	    		paymentCredit += Float.parseFloat(currentRow.getCell(46).getStringCellValue()) ;
+	    		paymentCredit += Float.parseFloat(currentRow.getCell(cellno.get("paidPrice")).getStringCellValue()) ;
 	      	  	payment.setPaymentCredit(df.format(paymentCredit));
 	
 	      	  	Float shippingFees = Float.parseFloat(payment.getShippingFees());
-	    		shippingFees =  Float.parseFloat(currentRow.getCell(48).getStringCellValue());
+	      	  	shippingFees +=  Float.parseFloat(currentRow.getCell(cellno.get("shippingFee")).getStringCellValue());	
+	    		
+	      	  	
+	      	  	Float sellerDiscountTotal = Float.parseFloat(currentRow.getCell(cellno.get("sellerDiscountTotal")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("sellerDiscountTotal")).getStringCellValue());
+	    		
 	      	  	payment.setShippingFees(df.format(shippingFees));
 	      	  	Float paymentDue = paymentCredit;
-	      	  	payment.setPaymentDue(paymentDue);
+	      	  	payment.setPaymentDue(df.format(paymentDue));
 	        }else {
 	        	payment = new Payment();
 	            Float paymentCredit = 0f;
@@ -426,7 +487,8 @@ public class ExcelLazadaHelper {
 	        	Date date = null;
 	        	java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
 	//        	java.text.DateFormat dateFormat = new java.text.SimpleDateFormat("dd MMM yyyy hh:mm");
-	        	String dateString = currentRow.getCell(8).getStringCellValue();
+	        	String dateString = currentRow.getCell(cellno.get("createTime")).getStringCellValue();
+	        	
 	
 				date = new Date(dateString);
 	//    		try {
@@ -438,15 +500,18 @@ public class ExcelLazadaHelper {
 	//    		}
 	    		payment.setDate(date);
 	           
-	
-	    		payment.setOrderId(currentRow.getCell(12).getStringCellValue());
-	    		paymentCredit = Float.parseFloat(currentRow.getCell(46).getStringCellValue());
-	    		shippingFees =  Float.parseFloat(currentRow.getCell(48).getStringCellValue());
+	    		
+	    		payment.setOrderId(currentRow.getCell(cellno.get("orderNumber")).getStringCellValue());
+	    		paymentCredit = Float.parseFloat(currentRow.getCell(cellno.get("paidPrice")).getStringCellValue()) ;
+	    		shippingFees =  Float.parseFloat(currentRow.getCell(cellno.get("shippingFee")).getStringCellValue());
+	    		Float sellerDiscountTotal = Float.parseFloat(currentRow.getCell(cellno.get("sellerDiscountTotal")).getStringCellValue().equals("")?"0":currentRow.getCell(cellno.get("sellerDiscountTotal")).getStringCellValue());
+	    		
+	    		
 	//    		client = clients.get(rowNumber);
-
-	    		String phoneno = currentRow.getCell(37).getStringCellValue();
+	    		
+	    		String phoneno = currentRow.getCell(cellno.get("billingPhone")).getStringCellValue();
 		        if(phoneno.equals("")) {
-		        	phoneno = currentRow.getCell(25).getStringCellValue();
+		        	phoneno = currentRow.getCell(cellno.get("shippingPhone")).getStringCellValue();
 		        }
 	        	Client client = new Client();
 	        	
@@ -460,11 +525,11 @@ public class ExcelLazadaHelper {
 	      	  	
 	      	  	payment.setPaymentCredit(df.format(paymentCredit));
 	      	  	payment.setShippingFees(df.format(shippingFees));
-	      	  	payment.setStatus(currentRow.getCell(64).getStringCellValue());
+	      	  	payment.setStatus(currentRow.getCell(cellno.get("status")).getStringCellValue());
 	      	  	paymentDue = paymentCredit;
-	      	  	payment.setPaymentDue(paymentDue);
+	      	  	payment.setPaymentDue(df.format(paymentDue));
 
-	  	  	  Payment p = payments.stream().filter(o -> o.getOrderId().equals(currentRow.getCell(12).getStringCellValue())).findFirst().orElse(null);
+	  	  	  Payment p = payments.stream().filter(o -> o.getOrderId().equals(currentRow.getCell(cellno.get("orderNumber")).getStringCellValue())).findFirst().orElse(null);
 	  	  	  if(p ==null) {
 	  	  		payments.add(payment);	  
 	  	  	  }

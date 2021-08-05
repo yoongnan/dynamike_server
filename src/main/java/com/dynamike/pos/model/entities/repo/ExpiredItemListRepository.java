@@ -13,7 +13,7 @@ import com.dynamike.pos.model.entities.ExpiredCheck;
 import com.dynamike.pos.model.entities.PurchaseItemList;
 
 @Repository
-public interface ExpiredCheckRepository extends JpaRepository<ExpiredCheck, Long>, PagingAndSortingRepository<ExpiredCheck, Long> {
+public interface ExpiredItemListRepository extends JpaRepository<PurchaseItemList, Long>, PagingAndSortingRepository<PurchaseItemList, Long> {
     
     @Query("SELECT v From PurchaseItemList v")
     List<PurchaseItemList> getPurchaseItemLists();
@@ -23,10 +23,4 @@ public interface ExpiredCheckRepository extends JpaRepository<ExpiredCheck, Long
     
     @Query("SELECT v From ExpiredCheck v where v.purchase.type.id = 1 order by v.expired desc, v.purchase.date desc")
     List<ExpiredCheck> getPurchaseItemListsByExpired();
-    
-    @Query("SELECT v From ExpiredCheck v where v.purchase.type.id = 1 and v.purchase.year =:year and v.purchase.month =:month")
-    List<ExpiredCheck> getExpiredItemLists(@Param("year") Integer year,@Param("month") Integer month);
-    
-    @Query("SELECT v From ExpiredCheck v where v.purchase.type.id = 1 and v.product.code =:code order by v.expired desc, v.purchase.date desc")
-    List<ExpiredCheck> getExpiredItemListsbyCode(@Param("code") String code);
 }

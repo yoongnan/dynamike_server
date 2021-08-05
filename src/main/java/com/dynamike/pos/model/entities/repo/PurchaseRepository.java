@@ -123,4 +123,12 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, Pagin
     @Query("select COALESCE(v.totalAmount, 0) from Purchase as v where v.type.id in (21) order by date desc ")
     Float getWallet();
     
+    
+    @Query(value = "select type,sum(total_amount) from pos.purchases where type in (2,3,5,6,7) and month = :month and year = :years group by type", 
+  		  nativeQuery = true)
+    List<Object[]> getExpenditure(@Param("years") Integer years,@Param("month") Integer month);
+    
+    @Query("select COALESCE(sum(v.totalAmount), 0) from Purchase as v where v.year in (:years) and v.type.id in (2,3,5,6,7) and v.month in (:month)")
+    Float getTotalExpenditure(@Param("years") Integer years,@Param("month") Integer month);
+    
 }

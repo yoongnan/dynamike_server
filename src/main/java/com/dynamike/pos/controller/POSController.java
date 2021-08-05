@@ -3,7 +3,9 @@ package com.dynamike.pos.controller;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import javax.validation.Valid;
@@ -79,6 +81,26 @@ public class POSController {
     	
     }
     
+    @RequestMapping(method = RequestMethod.GET, path = "/dailypaymentsummary", produces = "application/json")
+    public HttpEntity<List<Object[]>> getDailyPaymentSummary(
+    		@RequestParam(value = "type", required = false)  @Valid Integer provider,
+    		@RequestParam(value = "month", required = false)   @Valid Integer month,
+    		@RequestParam(value = "year", required = false) @NotNull  @Valid Integer year
+    		) throws Exception {
+    	return new ResponseEntity<List<Object[]>>(dbservice.getOrderSummaryDaily(), HttpStatus.OK);
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/paymentsummarybyweek", produces = "application/json")
+    public HttpEntity<List<Object[]>> getPaymentSummaryByWeek(
+    		@RequestParam(value = "type", required = false)  @Valid Integer provider,
+    		@RequestParam(value = "month", required = false)   @Valid Integer month,
+    		@RequestParam(value = "year", required = false) @NotNull  @Valid Integer year
+    		) throws Exception {
+    	return new ResponseEntity<List<Object[]>>(dbservice.getOrderSummaryByWeek(), HttpStatus.OK);
+    }
+    
+    
+    
     @RequestMapping(method = RequestMethod.GET, path = "/payment", produces = "application/json")
     public HttpEntity<List<Payment>> getPayments(
     		@RequestParam(value = "type", required = false)  @Valid Integer provider,
@@ -132,7 +154,18 @@ public class POSController {
     		@RequestParam(value = "code", required = false)  @Valid String code
     		) throws Exception {
     	
-    	return new ResponseEntity<List<ExpiredCheck>>(dbservice.getPurchaseItemListsByExpired(), HttpStatus.OK);
+    	return new ResponseEntity<List<ExpiredCheck>>(dbservice.getExpiredItemListsbyCode(code), HttpStatus.OK);
+    	
+    }
+    
+
+    @RequestMapping(method = RequestMethod.GET, path = "/expiredList", produces = "application/json")
+    public HttpEntity<List<ExpiredCheck>> expiredCheck(
+    		@RequestParam(value = "year", required = false)  @Valid Integer year,
+    		@RequestParam(value = "month", required = false)  @Valid Integer month
+    		) throws Exception {
+    	
+    	return new ResponseEntity<List<ExpiredCheck>>(dbservice.getExpiredItemLists(year, month), HttpStatus.OK);
     	
     }
     
@@ -330,11 +363,22 @@ public class POSController {
         return new ResponseEntity<List<DetailReport>>(dbservice.getDetailReport(years),HttpStatus.CREATED);
     }
     
+    @RequestMapping(method = RequestMethod.GET, path = "/summaryMonthlyreport", produces = "application/json")
+    public HttpEntity<List<DetailReport>> getSummaryMonthlyReport(
+    		@RequestParam(value = "years", required = false)  @NotNull @Valid Integer years
+            ) throws Exception {
+    	
+    	
+        return new ResponseEntity<List<DetailReport>>(dbservice.getSummaryDetailReport(years),HttpStatus.CREATED);
+    }
+    
+    
     @PutMapping(path = "/purchaseItems", produces = "application/json")
     public HttpEntity updatePurchaseItems(
     		@RequestParam(value = "list_data", required = false)  @NotNull @Valid String list_data,
     		@RequestParam(value = "old_list_data", required = false) @Valid String oldlist_data
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	List<PurchaseItemList> purchaseitems = Format.strToClassObjList(list_data, PurchaseItemList.class);
     	List<PurchaseItemList> oldpurchaseitems = Format.strToClassObjList(oldlist_data, PurchaseItemList.class);
     	for(PurchaseItemList purchaseitem :oldpurchaseitems) {
@@ -346,7 +390,7 @@ public class POSController {
             	stock -= purchaseitem.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	dbservice.updateProduct(product);	
         	}
         	dbservice.deletePurchaseItem(purchaseitem);
@@ -360,7 +404,7 @@ public class POSController {
             	stock += purchaseitem.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	dbservice.updateProduct(product);
         		
         	}
@@ -373,6 +417,7 @@ public class POSController {
     public Purchase updatePurchaseItems(
     		String group_data, Purchase purchase, String old_data
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	purchase= dbservice.createPurchase(purchase);
     	List<PurchaseItemList> purchaseitems = Format.strToClassObjList(group_data, PurchaseItemList.class);
     	List<PurchaseItemList> oldpurchaseitems = Format.strToClassObjList(old_data, PurchaseItemList.class);
@@ -385,7 +430,7 @@ public class POSController {
             	stock -= purchaseitem.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	dbservice.updateProduct(product);
         		
         	}
@@ -401,7 +446,7 @@ public class POSController {
             	stock += purchaseitem.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	dbservice.updateProduct(product);
         		
         	}
@@ -413,6 +458,7 @@ public class POSController {
     public Purchase addPurchaseItems(
     		String group_data, Purchase purchase
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	purchase= dbservice.createPurchase(purchase);
     	List<PurchaseItemList> purchaseitems = Format.strToClassObjList(group_data, PurchaseItemList.class);
         for(PurchaseItemList purchaseitem :purchaseitems) {
@@ -425,7 +471,7 @@ public class POSController {
             	stock += purchaseitem.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	dbservice.updateProduct(product);	
         	}
         	dbservice.createPurchaseItem(purchaseitem);
@@ -456,6 +502,20 @@ public class POSController {
     	return new ResponseEntity<List<ProductCheck>>(dbservice.checkStockConflict(date),HttpStatus.CREATED);
     }
     
+    @RequestMapping(path = "/stockcheckdate", produces = "application/json")
+    public HttpEntity<List<StockCheck>> getstockCheckdate(
+    		@RequestParam(value = "year", required = false)  @Valid Integer year,
+    		@RequestParam(value = "month", required = false)  @Valid Integer month
+            ) throws Exception {
+    	return new ResponseEntity<List<StockCheck>>(dbservice.getStockCheckDate(year,month),HttpStatus.CREATED);
+    }
+    
+    @RequestMapping(path = "/stockchecklist", produces = "application/json")
+    public HttpEntity<List<StockCheck>> getstockchecklist(
+    		@RequestParam(value = "date", required = false)  @NotNull @Valid String date
+            ) throws Exception {  
+    	return new ResponseEntity<List<StockCheck>>(dbservice.getStockCheckByDate(date),HttpStatus.CREATED);
+    }
     
     
     @PostMapping(path = "/stockcheck", produces = "application/json")
@@ -496,7 +556,7 @@ public class POSController {
     public void deletePurchaseItems(
     		Purchase purchase
             ) throws Exception {
-
+    	DecimalFormat df = new DecimalFormat("0.00");
     	List<PurchaseItemList> purchaseitems = dbservice.getPurchaseItemListsByPurchaseId(purchase.getId());
         for(PurchaseItemList purchaseitem :purchaseitems) {
         	Inventory product = dbservice.getProductByCodeSupplierId(purchaseitem.getProductCode(), purchase.getSupplier().getId());
@@ -506,7 +566,7 @@ public class POSController {
             	stock -= purchaseitem.getQuantity();
             	total = Double.parseDouble(product.getUnitCost()) * stock;
             	product.setStock(stock.toString());
-            	product.setTotalStock(String.valueOf(total));
+            	product.setTotalStock(df.format(total));
             	dbservice.updateProduct(product);        		
         	}
         	dbservice.deletePurchaseItem(purchaseitem);
@@ -568,6 +628,7 @@ public class POSController {
     		@RequestParam(value = "list_data", required = false)  @NotNull @Valid String list_data,
     		@RequestParam(value = "old_list_data", required = false) @Valid String oldlist_data
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	List<OrderList> orderitems = Format.strToClassObjList(list_data, OrderList.class);
     	List<OrderList> oldorderitems = Format.strToClassObjList(oldlist_data, OrderList.class);
     	for(OrderList orderitem :oldorderitems) {
@@ -577,7 +638,7 @@ public class POSController {
         	stock += orderitem.getQuantity();
         	total = Double.parseDouble(product.getUnitCost()) * stock;
         	product.setStock(stock.toString());
-        	product.setTotalStock(String.valueOf(total));
+        	product.setTotalStock(df.format(total));
         	dbservice.updateProduct(product);
         	dbservice.deleteOrderItem(orderitem);
         }
@@ -588,7 +649,7 @@ public class POSController {
         	stock -= orderitem.getQuantity();
         	total = Double.parseDouble(product.getUnitCost()) * stock;
         	product.setStock(stock.toString());
-        	product.setTotalStock(String.valueOf(total));
+        	product.setTotalStock(df.format(total));
         	dbservice.updateProduct(product);
         	dbservice.createOrderItem(orderitem);
         }
@@ -598,6 +659,7 @@ public class POSController {
     public Payment updateOrderItems(
     		String group_data, Payment payment, String old_group_data
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	payment= dbservice.addTransaction(payment);
     	List<OrderList> orderitems = Format.strToClassObjList(group_data, OrderList.class);
     	List<OrderList> oldorderitems = Format.strToClassObjList(old_group_data, OrderList.class);
@@ -608,7 +670,7 @@ public class POSController {
         	stock += orderitem.getQuantity();
         	total = Double.parseDouble(product.getUnitCost()) * stock;
         	product.setStock(stock.toString());
-        	product.setTotalStock(String.valueOf(total));
+        	product.setTotalStock(df.format(total));
         	dbservice.updateProduct(product);
         	dbservice.deleteOrderItem(orderitem);
         }
@@ -623,7 +685,7 @@ public class POSController {
         			orderStock =0;
                 	total = Double.parseDouble(product.getUnitCost()) * stock;
                 	product.setStock(stock.toString());
-                	product.setTotalStock(String.valueOf(total));
+                	product.setTotalStock(df.format(total));
                 	dbservice.updateProduct(product);
                 	break;
         		}else {
@@ -631,7 +693,7 @@ public class POSController {
         			stock = 0;
         			total = Double.parseDouble(product.getUnitCost()) * stock;
                 	product.setStock(stock.toString());
-                	product.setTotalStock(String.valueOf(total));
+                	product.setTotalStock(df.format(total));
                 	dbservice.updateProduct(product);
         		}
         	}
@@ -643,7 +705,7 @@ public class POSController {
 //        	stock -= orderitem.getQuantity();
 //        	total = Double.parseDouble(product.getUnitCost()) * stock;
 //        	product.setStock(stock.toString());
-//        	product.setTotalStock(String.valueOf(total));
+//        	product.setTotalStock(df.format(total));
 //        	dbservice.updateProduct(product);
 //        	dbservice.createOrderItem(orderitem);
         }
@@ -654,6 +716,7 @@ public class POSController {
     
     public void deleteTransaction( Payment payment
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	List<OrderList> orderitems = dbservice.getOrderItemListsById(payment.getOrderId());
         for(OrderList orderitem :orderitems) {
         	Inventory product = dbservice.getProductByCode(orderitem.getItemId());
@@ -662,7 +725,7 @@ public class POSController {
         	stock += orderitem.getQuantity();
         	total = Double.parseDouble(product.getUnitCost()) * stock;
         	product.setStock(stock.toString());
-        	product.setTotalStock(String.valueOf(total));
+        	product.setTotalStock(df.format(total));
         	dbservice.updateProduct(product);
         	dbservice.deleteOrderItem(orderitem);
         }
@@ -672,6 +735,7 @@ public class POSController {
     public Payment addOrderItems(
     		String group_data, Payment payment
             ) throws Exception {
+    	DecimalFormat df = new DecimalFormat("0.00");
     	payment= dbservice.addTransaction(payment);
     	List<OrderList> orderitems = Format.strToClassObjList(group_data, OrderList.class);
         for(OrderList orderitem :orderitems) {
@@ -685,7 +749,7 @@ public class POSController {
         			orderStock =0;
                 	total = Double.parseDouble(product.getUnitCost()) * stock;
                 	product.setStock(stock.toString());
-                	product.setTotalStock(String.valueOf(total));
+                	product.setTotalStock(df.format(total));
                 	dbservice.updateProduct(product);
                 	break;
         		}else {
@@ -693,7 +757,7 @@ public class POSController {
         			stock = 0;
         			total = Double.parseDouble(product.getUnitCost()) * stock;
                 	product.setStock(stock.toString());
-                	product.setTotalStock(String.valueOf(total));
+                	product.setTotalStock(df.format(total));
                 	dbservice.updateProduct(product);
         		}
         	}
@@ -746,29 +810,55 @@ public class POSController {
     
     @PutMapping(path = "/quickUpdateProduct", produces = "application/json")
     public HttpEntity<Inventory> addProduct(
-    		@RequestParam(value = "group_data", required = false) String group_data
+    		@RequestParam(value = "group_data", required = false) String group_data,
+    		@RequestParam(value = "update", required = true) boolean update
             ) throws Exception {
     	Inventory product = Format.strToClassObj(group_data, Inventory.class);
+    	Inventory existingproduct = dbservice.getProductById(product.getId());
     	SimpleItem  item = product.getItem();
+    	if(item.getSellingPrice() == null || item.getSellingPrice().trim().equals("")) {
+    		item.setSellingPrice("0.00");
+    	}
+    	if(!update) {
+    		if(existingproduct!=null) {
+    			throw new Exception("duplicate Inventory");
+    		}
+    	}
     	item = dbservice.createSimpleItem(item);
+    	if(product.getTotalStock() == null || product.getTotalStock().trim().equals("")) {
+    		product.setTotalStock("0.00");	
+    	}
+    	if(product.getStock() == null || product.getStock().trim().equals("")) {
+    		product.setStock("0");	
+    	}
     	product.setItem(item);
-//    	Item item = Format.strToClassObj(group_data, Item.class);
-//    	Inventory product = item.getProduct();
-//    	product = dbservice.createProduct(product);
-//    	item.setProduct(product);
         return new ResponseEntity<Inventory>(dbservice.createProduct(product),HttpStatus.CREATED);
     }
     
     @PostMapping(path = "/products", produces = "application/json")
     public HttpEntity<Inventory> addProduct(
     		@RequestParam(value = "group_data", required = false) String group_data,
+    		@RequestParam(value = "update", required = false) boolean update,
     		@RequestParam(value = "file") MultipartFile files
             ) throws Exception {
     	System.out.println("ADD Product");
 
     	Inventory product = Format.strToClassObj(group_data, Inventory.class);
+    	Inventory existingproduct = dbservice.getProductById(product.getId());
     	SimpleItem  item = product.getItem();
-    	item = dbservice.createSimpleItem(item);
+    	if(item.getSellingPrice() == null || item.getSellingPrice().trim().equals("")) {
+    		item.setSellingPrice("0.00");
+    	}
+    	
+    	if(!update) {
+    		if(existingproduct!=null) {
+    			throw new Exception("duplicate Inventory");
+    		}
+    	}
+    	
+		item = dbservice.createSimpleItem(item);	
+    	
+    	
 //    	Item item = Format.strToClassObj(group_data, Item.class);
         if(files != null){
         	byte[] rawBytes = null;  
@@ -813,9 +903,15 @@ public class POSController {
         	
         	product.setImage(rawBytes);
         }
-    	
-//    	Inventory product = item.getProduct();
-    	product = dbservice.createProduct(product);
+
+    	if(product.getTotalStock() == null || product.getTotalStock().trim().equals("")) {
+    		product.setTotalStock("0.00");	
+    	}
+    	if(product.getStock() == null || product.getStock().trim().equals("")) {
+    		product.setStock("0");	
+    	}
+//    	Inventory product = item.getProduct();    	
+    	product = dbservice.createProduct(product);    	
 //    	item.setProduct(product);
 //    	item = dbservice.createItem(item);
         return new ResponseEntity<Inventory>(product,HttpStatus.CREATED);

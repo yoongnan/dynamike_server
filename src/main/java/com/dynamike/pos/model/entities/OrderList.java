@@ -17,6 +17,7 @@ import javax.persistence.Id;
 import javax.persistence.OneToMany;
 import javax.persistence.OrderBy;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 import javax.persistence.Lob;
 
 import org.hibernate.annotations.Cache;
@@ -47,10 +48,14 @@ public class OrderList {
     @Column(name = "quantity")
     private Integer quantity;
     
+//    @Transient
+    @Column(name = "selling_price")
+    private String sellingPrice;
+    
     @Column(name = "unit_price")
     private String unitPrice;
-    
-    @Column(name = "total_price")
+
+	@Column(name = "total_price")
     private String totalPrice;
     
     @Column(name = "invoice_id")
@@ -71,7 +76,15 @@ public class OrderList {
 //    public void setId(Integer id) {
 //        this.id = id;
 //    }
-    
+        
+    public String getSellingPrice() {
+		return sellingPrice;
+	}
+
+	public void setSellingPrice(String sellingPrice) {
+		this.sellingPrice = sellingPrice;
+	}
+	
     public String getInvoiceId() {
         return invoiceId;
     }
