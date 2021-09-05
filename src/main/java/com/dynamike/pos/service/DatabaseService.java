@@ -1,8 +1,23 @@
 package com.dynamike.pos.service;
 
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.text.DecimalFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
@@ -11,23 +26,33 @@ import java.util.HashSet;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.FileCopyUtils;
+import org.springframework.util.ResourceUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.dynamike.pos.model.entities.*;
 import com.dynamike.pos.model.entities.repo.*;
+import com.dynamike.pos.util.Constants;
+import com.dynamike.pos.util.EnglishNumberToWords;
 import com.dynamike.pos.util.Format;
+import com.dynamike.pos.util.PDFUtil;
 import com.google.common.collect.Lists;
 
 
 @Service
 @Transactional
 public class DatabaseService {
-	DecimalFormat df = new DecimalFormat("0.00");
+	DecimalFormat df = new DecimalFormat("0.00");	        
 	@Autowired
 	ProuctCheckRepository product_check_repos;
 	
@@ -147,7 +172,7 @@ public class DatabaseService {
 				}else {
 					s = new StockCheck();
 					s.setDate(date);
-					s.setProductId(p.getCode());
+					s.setProductId(p.getId());
 					s.setQuantity("0");
 					s.setTotal(0f);
 					if(Double.isNaN(Float.parseFloat(p.getUnit_cost()))) {
@@ -219,7 +244,12 @@ public class DatabaseService {
 		return expiredcheck_repos.getExpiredItemLists(year, month);
 	}
 	
-	public void setPurchaseItemListsWithExpired(ExpiredCheck purchaseItem){
+	public void setPurchaseItemListsWithExpired(List<ExpiredCheck> purchaseItem){
+//		purchaseslist_repos.save(purchaseItem);
+		expiredcheck_repos.saveAll(purchaseItem);
+	}
+	
+	public void setPurchaseItemListWithExpired(ExpiredCheck purchaseItem){
 //		purchaseslist_repos.save(purchaseItem);
 		expiredcheck_repos.save(purchaseItem);
 	}
@@ -234,6 +264,138 @@ public class DatabaseService {
 		return purchaseslist_repos.getPurchaseItemLists();
 	}
 	
+	public List<Payment> getPaymentsWithEarnedByYearMonth(Integer year, Integer month){
+		List<Payment> pageItem = payment_repos.getPaymentsByYearMonth(year,month);
+		List<Payment> returnspageItem = Lists.newArrayList();
+		Double earnedperday = 0.0;
+		Double cogsperday = 0.0;
+		Double paymentdueperday = 0.0;
+		Double paymentfeesperday = 0.0;
+		Double paymentcreditperday = 0.0;
+		Double shippingfeesperday = 0.0;
+		Double commissionfeesperday = 0.0;
+		Double otherfeesperday = 0.0;
+		String dateString = pageItem.get(0).getDate().substring(0,10);
+		int orderCount = 0;
+		int index =1;
+		for(Payment p : pageItem) {
+			if(index == pageItem.size()) {
+				java.text.DateFormat dateFormat;
+				dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+				Date date = null;
+				try {
+					date = dateFormat.parse(dateString);
+				} catch (ParseException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				Payment rp = new Payment();
+				rp.setId(dateString);
+				rp.setDate(date);
+				rp.setOrderCount(orderCount);
+				rp.setTotalCOGS(df.format(cogsperday));
+				rp.setEarned(df.format(earnedperday));
+				rp.setPaymentCredit(df.format(paymentcreditperday));
+				rp.setPaymentDue(df.format(paymentdueperday));
+				rp.setPaymentFees(df.format(paymentdueperday));
+				rp.setShippingFees(df.format(shippingfeesperday));
+				rp.setCommissionFees(df.format(commissionfeesperday));
+				rp.setOthersFees(df.format(otherfeesperday));
+				returnspageItem.add(rp);
+				dateString = p.getDate().substring(0,10);
+				orderCount=0;
+				earnedperday = 0.0;
+				cogsperday = 0.0;
+				paymentdueperday = 0.0;
+				paymentfeesperday = 0.0;
+				paymentcreditperday = 0.0;
+				shippingfeesperday = 0.0;
+				commissionfeesperday = 0.0;
+				otherfeesperday = 0.0;
+			}
+			if(!dateString.equals("") && !dateString.equals(p.getDate().substring(0,10))) {
+				java.text.DateFormat dateFormat;
+				dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+				Date date = null;
+				try {
+					date = dateFormat.parse(dateString);
+				} catch (ParseException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				Payment rp = new Payment();
+				rp.setId(dateString);
+				rp.setDate(date);
+				rp.setOrderCount(orderCount);
+				rp.setTotalCOGS(df.format(cogsperday));
+				rp.setEarned(df.format(earnedperday));
+				rp.setPaymentCredit(df.format(paymentcreditperday));
+				rp.setPaymentDue(df.format(paymentdueperday));
+				rp.setPaymentFees(df.format(paymentdueperday));
+				rp.setShippingFees(df.format(shippingfeesperday));
+				rp.setCommissionFees(df.format(commissionfeesperday));
+				rp.setOthersFees(df.format(otherfeesperday));
+				returnspageItem.add(rp);
+				dateString = p.getDate().substring(0,10);
+				orderCount=0;
+				earnedperday = 0.0;
+				cogsperday = 0.0;
+				paymentdueperday = 0.0;
+				paymentfeesperday = 0.0;
+				paymentcreditperday = 0.0;
+				shippingfeesperday = 0.0;
+				commissionfeesperday = 0.0;
+				otherfeesperday = 0.0;
+			}
+			Float cogs  =orderlist_repos.getCOGSByInvoiceId(p.getOrderId());
+			p.setTotalCOGS(df.format(cogs));
+			Double adjusted  = 0.0;
+			if(p.getAdjusted()!=null && !p.getAdjusted().trim().equals("")) {
+				Double.parseDouble(p.getAdjusted());	
+			}			
+			Double earned = Double.parseDouble(p.getPaymentDue()) - Double.parseDouble(p.getTotalCOGS()) - adjusted;
+			p.setEarned(df.format(earned));
+			
+			
+			if(p.getCommissionFees()!=null && !p.getCommissionFees().trim().equals("")) {
+				commissionfeesperday+= Double.parseDouble(p.getCommissionFees());	
+			}
+			if(p.getOthersFees()!=null && !p.getOthersFees().trim().equals("")) {
+				otherfeesperday+= Double.parseDouble(p.getOthersFees());
+			}
+			if(p.getShippingFees()!=null && !p.getShippingFees().trim().equals("")) {
+				shippingfeesperday+= Double.parseDouble(p.getShippingFees());	
+			}
+			if(p.getPaymentFees()!=null && !p.getPaymentFees().trim().equals("")) {
+				paymentfeesperday+= Double.parseDouble(p.getPaymentFees());
+			}
+			
+			paymentcreditperday+= Double.parseDouble(p.getPaymentCredit());
+			paymentdueperday+= Double.parseDouble(p.getPaymentDue());
+			cogsperday +=cogs;
+			earnedperday +=earned;
+			orderCount++;
+			index++;
+		}
+		return returnspageItem;
+	}
+	
+	
+	public List<Payment> getPaymentsbyDate(Date from, Date to){
+		List<Payment> pageItem = payment_repos.getPaymentsByDate(from, to);
+		for(Payment p : pageItem) {
+			Float cogs  =orderlist_repos.getCOGSByInvoiceId(p.getOrderId());
+			p.setTotalCOGS(df.format(cogs));
+			Double adjusted  = 0.0;
+			if(p.getAdjusted()!=null && !p.getAdjusted().trim().equals("")) {
+				Double.parseDouble(p.getAdjusted());	
+			}			
+			Double earned = Double.parseDouble(p.getPaymentDue()) - Double.parseDouble(p.getTotalCOGS()) - adjusted;
+			p.setEarned(df.format(earned));
+		}
+		return pageItem;
+	}
+	
 	public List<Payment> getPayments(){
 		return payment_repos.getPayments();
 	}
@@ -242,7 +404,16 @@ public class DatabaseService {
 	}
 	
 	public Payment getPaymentsById(String id){
-		return payment_repos.getPaymentsByInvoiceNo(id);
+		Payment p = payment_repos.getPaymentsByInvoiceNo(id);
+		Float cogs  =orderlist_repos.getCOGSByInvoiceId(p.getOrderId());
+		p.setTotalCOGS(df.format(cogs));
+		Double adjusted  = 0.0;
+		if(p.getAdjusted()!=null && !p.getAdjusted().trim().equals("")) {
+			adjusted = Double.parseDouble(p.getAdjusted());	
+		}			
+		Double earned = Double.parseDouble(p.getPaymentDue()) - Double.parseDouble(p.getTotalCOGS()) - adjusted;
+		p.setEarned(df.format(earned));
+		return p;
 	}
 	
 	public List<Payment> getPaymentsByYear(Integer year){
@@ -258,6 +429,24 @@ public class DatabaseService {
 		return payment_repos.getPaymentsByYearMonth(year,month,types);
 	}
 	
+	public Page<Payment> getPaginationPaymentsByYearMonth(Integer year, Integer month, Integer type, Integer page, Integer size){
+		Pageable pagingSort = PageRequest.of(page, size);
+		Page<Payment> pageItem;
+		List<Integer> types = Lists.newArrayList(type);
+		pageItem = payment_repos.getPaginationPaymentsByYearMonth(year,month,types,pagingSort);
+		for(Payment p : pageItem) {
+			Float cogs  =orderlist_repos.getCOGSByInvoiceId(p.getOrderId());
+			p.setTotalCOGS(df.format(cogs));
+			Double adjusted  = 0.0;
+			if(p.getAdjusted()!=null && !p.getAdjusted().trim().equals("")) {
+				Double.parseDouble(p.getAdjusted());	
+			}			
+			Double earned = Double.parseDouble(p.getPaymentDue()) - Double.parseDouble(p.getTotalCOGS()) - adjusted;
+			p.setEarned(df.format(earned));
+		}
+		return pageItem;
+	}
+	
 	public List<Object[]> getOrderSummaryDaily(){
 		List<Object[]> result = Lists.newArrayList();
 		result = payment_repos.getOrderSummaryDaily(2021,7,null);
@@ -268,6 +457,13 @@ public class DatabaseService {
 		List<Object[]> result = Lists.newArrayList();
 		result = payment_repos.getOrderSummaryByWeek(2021, null);
 		return result;
+	}
+	
+	public Page<Client> getClients(Integer page, Integer size) {
+		Pageable pagingSort = PageRequest.of(page, size);
+		Page<Client> pageItem;
+		pageItem = client_repos.getClients(pagingSort);
+		return pageItem;
 	}
 	
 	public List<Client> getClients() {
@@ -526,6 +722,10 @@ public class DatabaseService {
 			return invetories.get(0);	
 		}
 		return null;
+	}
+	
+	public List<Product> getListProductBySupplier(Integer supplier){
+		return inventory_repos.getListProductBySupplier(supplier);
 	}
 	
 	public List<Inventory> getListProductByCode(String code){
@@ -970,6 +1170,10 @@ public class DatabaseService {
 			List<Object[]> expenditures = purchase_repos.getExpenditure(year,i);
 			for(Object[] expenditure : expenditures) {
 				switch(Integer.parseInt(expenditure[0].toString())) {
+					case 1:{
+						detailReport.setInStock(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
+						break;
+					}
 					case 2:{
 						detailReport.setPackages(DatabaseService.roundFloat(Float.parseFloat(expenditure[1].toString()),2));
 						break;
@@ -1102,4 +1306,153 @@ public class DatabaseService {
 		
 		return detailReports;
 	}
+	
+	public static final int DEFAULT_BUFFER_SIZE = 8192;
+	private static final Charset[] UTF_ENCODINGS = { Charset.forName("UTF-8"),
+		      Charset.forName("UTF-16LE"), Charset.forName("UTF-16BE") };
+	
+	private static Charset getEncoding(InputStream in) throws IOException {
+	    charsetLoop: for (Charset encodings : UTF_ENCODINGS) {
+	      byte[] bom = "\uFEFF".getBytes(encodings);
+	      in.mark(bom.length);
+	      for (byte b : bom) {
+	        if ((0xFF & b) != in.read()) {
+	          in.reset();
+	          continue charsetLoop;
+	        }
+	      }
+	      return encodings;
+	    }
+	    return Charset.defaultCharset();
+	  }
+	
+	private static void copyInputStreamToFile(InputStream inputStream, File file)
+            throws IOException {
+		
+		
+//
+//        try (FileOutputStream outputStream = new FileOutputStream(file, false)) {
+//            int read;
+//            byte[] bytes = new byte[DEFAULT_BUFFER_SIZE];
+//            while ((read = inputStream.read(bytes)) != -1) {
+//                outputStream.write(bytes, 0, read);
+//            }
+//        }
+
+		
+//        FileOutputStream outputStream = new FileOutputStream(file, false);		
+//        int read;
+//        byte[] bytes = new byte[DEFAULT_BUFFER_SIZE];
+//        while ((read = inputStream.read(bytes)) != -1) {
+//            outputStream.write(bytes, 0, read);
+//        }
+		 BufferedReader reader = new BufferedReader(
+		            new InputStreamReader(inputStream,"UTF-8"));
+        StringBuilder sb = new StringBuilder();
+        for (int ch; (ch = reader.read()) != -1; ) {
+            sb.append((char) ch);
+        }
+        
+        
+        // append = false
+     	try (Writer write = new OutputStreamWriter(new FileOutputStream(file,false), "UTF-8")) {
+ 			write.write(sb.toString());
+ 			write.close();
+     	}
+    }
+
+    public String getCashSalesPdfContent(CashSales cashsales) {
+    	File file = null;
+//        String templatePath = this.getClass().getClassLoader().getResource(Constants.PDF_TEMPLATE_FOLDER).getPath();
+//        String templatePath = "/C:/Users/bysadmin/Documents/GitHub/dynamike_server/target/classes/template";
+//        file  = new File(templatePath);        	
+//        if (!file.isDirectory()) {
+//            return null;
+//        }
+
+        ClassPathResource cpr = new ClassPathResource(Constants.PDF_TEMPLATE_FOLDER+File.separator+"CashSales.ftl");
+        file = new File("CashSales.ftl");
+        try {
+			copyInputStreamToFile(cpr.getInputStream(), file);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+      
+		String[] date = cashsales.getDate().split("-");
+		Integer index =  payment_repos.generateCashSalesNo(Integer.parseInt(date[0].toString()),Integer.parseInt(date[1].toString()),3)==null? 1: payment_repos.generateCashSalesNo(Integer.parseInt(date[0].toString()),Integer.parseInt(date[1].toString()),3)+ 1;
+		String formatted = String.format("%03d", index);
+		cashsales.setCashSalesNo(date[0].toString()+date[1].toString()+formatted);
+        Double total = 0.0;
+        int orderIndex = 1;
+        for(OrderList o :cashsales.getOrderItemList()) {
+        	total += Double.parseDouble(o.getSellingPrice()==null?"0.0":o.getSellingPrice());
+        	Double totalPrice = Double.parseDouble(o.getSellingPrice()==null?"0.0":o.getSellingPrice());
+        	Double unitPrice = totalPrice / o.getQuantity();
+        	o.setUnitPrice(df.format(unitPrice));
+        	o.setTotalPrice(df.format(totalPrice));
+        	o.setIndex("#"+orderIndex);
+        	orderIndex++;
+        }
+        cashsales.setEmail("");
+        cashsales.setSubTotal(df.format(total));
+        cashsales.setFinalTotal(df.format(total));
+        String phrase = cashsales.getFinalTotal() ;
+        Float num = new Float( phrase ) ;
+        int dollars = (int)Math.floor( num ) ;
+        int cent = (int)Math.floor( ( num - dollars ) * 100.0f ) ;
+        cashsales.setRinggit(EnglishNumberToWords.convert( dollars ).toUpperCase());
+        cashsales.setCents(EnglishNumberToWords.convert( cent ).toUpperCase());
+        return PDFUtil.getContent(cashsales, file.getAbsolutePath(), "CashSales.ftl");
+    }
+    
+    public String getInvoicePdfContent(CashSales cashsales) {
+    	File file = null;
+//        String templatePath = this.getClass().getClassLoader().getResource(Constants.PDF_TEMPLATE_FOLDER).getPath();
+//        String templatePath = "/C:/Users/bysadmin/Documents/GitHub/dynamike_server/target/classes/template";
+//        file  = new File(templatePath);        	
+//        if (!file.isDirectory()) {
+//            return null;
+//        }
+
+        ClassPathResource cpr = new ClassPathResource(Constants.PDF_TEMPLATE_FOLDER+File.separator+"Invoice.ftl");
+        file = new File("Invoice.ftl");
+        try {
+			copyInputStreamToFile(cpr.getInputStream(), file);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+      
+		String[] date = cashsales.getDate().split("-");
+		Integer index =  payment_repos.generateCashSalesNo(Integer.parseInt(date[0].toString()),Integer.parseInt(date[1].toString()),3)==null? 1: payment_repos.generateCashSalesNo(Integer.parseInt(date[0].toString()),Integer.parseInt(date[1].toString()),3)+ 1;
+		String formatted = String.format("%03d", index);
+		cashsales.setCashSalesNo(date[0].toString()+date[1].toString()+formatted);
+        Double total = 0.0;
+        int orderIndex = 1;
+        for(OrderList o :cashsales.getOrderItemList()) {
+        	total += Double.parseDouble(o.getSellingPrice()==null?"0.0":o.getSellingPrice());
+        	Double totalPrice = Double.parseDouble(o.getSellingPrice()==null?"0.0":o.getSellingPrice());
+        	Double unitPrice = totalPrice / o.getQuantity();
+        	o.setItemId(o.getItemId().replaceAll("\n", "<BR/>"));
+        	o.setUnitPrice(df.format(unitPrice));
+        	o.setTotalPrice(df.format(totalPrice));
+        	o.setIndex("#"+orderIndex);
+        	orderIndex++;
+        }
+        if(cashsales.getContactNo()==null) {
+        	cashsales.setContactNo("");	
+        }    
+        cashsales.setAddress(cashsales.getAddress().replaceAll("\n", "<BR/>"));
+        cashsales.setEmail("");
+        cashsales.setSubTotal(df.format(total));
+        cashsales.setFinalTotal(df.format(total));
+        String phrase = cashsales.getFinalTotal() ;
+        Float num = new Float( phrase ) ;
+        int dollars = (int)Math.floor( num ) ;
+        int cent = (int)Math.floor( ( num - dollars ) * 100.0f ) ;
+        cashsales.setRinggit(EnglishNumberToWords.convert( dollars ).toUpperCase());
+        cashsales.setCents(EnglishNumberToWords.convert( cent ).toUpperCase());
+        return PDFUtil.getContent(cashsales, file.getAbsolutePath(), "Invoice.ftl");
+    }
 }

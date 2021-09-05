@@ -22,7 +22,7 @@ public class PDFUtil {
         try {
             Configuration config = new Configuration(Configuration.VERSION_2_3_25);
             config.setDefaultEncoding("UTF-8");
-            config.setDirectoryForTemplateLoading(new File(templatePath));
+            config.setDirectoryForTemplateLoading(new File(templatePath.replace(fileName, "")));
             config.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
             config.setLogTemplateExceptions(false);
             Template template = config.getTemplate(fileName);
@@ -40,7 +40,7 @@ public class PDFUtil {
         try {
         	document.open();
             XMLWorkerHelper.getInstance().parseXHtml(writer, document,
-                    new ByteArrayInputStream(htmlString.getBytes()), null,
+                    new ByteArrayInputStream(htmlString.getBytes("UTF8")), null,
                     Charset.forName("UTF-8"));
         } catch (IOException e) {
             LOG.error("Generate PDF file error", e);

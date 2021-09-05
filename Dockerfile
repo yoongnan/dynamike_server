@@ -11,14 +11,14 @@ RUN mvn clean package -Dmaven.test.skip=true
 
 ### STAGE 2: Setup ###
 FROM openjdk:8
-RUN groupadd -r plm && useradd -r -g plm -m -d /home/plm -c "Docker Image User" plm
-USER plm
-WORKDIR /home/plm
-RUN mkdir -p /home/plm/plm-server/
-RUN mkdir -p /home/plm/template
-RUN mkdir -p /home/plm/logs
-COPY /template/PDF.ftl /home/plm/template/
-COPY /template/PDFAll.ftl /home/plm/template/
-COPY --from=builder /app/target/plm-server-1.0.0.jar /home/plm/plm-server/
+RUN groupadd -r dynamike && useradd -r -g dynamike -m -d /home/dynamike -c "Docker Image User" dynamike
+USER dynamike
+WORKDIR /home/dynamike
+RUN mkdir -p /home/dynamike/dynamike-server/
+RUN mkdir -p /home/dynamike/template
+RUN mkdir -p /home/dynamike/logs
+COPY /template/PDF.ftl /home/dynamike/template/
+COPY /template/PDFAll.ftl /home/dynamike/template/
+COPY --from=builder /app/target/dynamike-server-1.0.0.jar /home/dynamike/dynamike-server/
 EXPOSE 9000
-ENTRYPOINT ["java","-jar","/home/plm/plm-server/plm-server-1.0.0.jar"]
+ENTRYPOINT ["java","-jar","/home/dynamike/dynamike-server/dynamike-server-1.0.0.jar"]

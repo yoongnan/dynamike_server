@@ -3,11 +3,18 @@ package com.dynamike.pos.controller;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.text.DecimalFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import java.util.TreeMap;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 
@@ -17,6 +24,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -30,6 +38,7 @@ import org.springframework.web.multipart.MultipartFile;
 import com.dynamike.pos.model.entities.Account;
 import com.dynamike.pos.model.entities.CapitalReport;
 import com.dynamike.pos.model.entities.CashFlowReport;
+import com.dynamike.pos.model.entities.CashSales;
 import com.dynamike.pos.model.entities.Client;
 import com.dynamike.pos.model.entities.DetailReport;
 import com.dynamike.pos.model.entities.ExpenditureReport;
@@ -39,6 +48,7 @@ import com.dynamike.pos.model.entities.InvoiceType;
 import com.dynamike.pos.model.entities.Item;
 import com.dynamike.pos.model.entities.OrderList;
 import com.dynamike.pos.model.entities.Payment;
+import com.dynamike.pos.model.entities.PaymentWithEarned;
 import com.dynamike.pos.model.entities.Product;
 import com.dynamike.pos.model.entities.ProductCheck;
 import com.dynamike.pos.model.entities.ProductItem;
@@ -51,7 +61,17 @@ import com.dynamike.pos.model.entities.StockCheck;
 import com.dynamike.pos.model.entities.Supplier;
 import com.dynamike.pos.service.DatabaseService;
 import com.dynamike.pos.service.ExcelShopeeHelper;
+import com.dynamike.pos.util.EnglishNumberToWords;
 import com.dynamike.pos.util.Format;
+import com.dynamike.pos.util.PDFBuilder;
+import com.dynamike.pos.util.PDFUtil;
+
+
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.RectangleReadOnly;
+import com.itextpdf.text.pdf.PdfWriter;
 
 import ch.qos.logback.classic.Logger;
 import io.swagger.annotations.Api;
@@ -77,8 +97,7 @@ public class POSController {
     	Payment payment = dbservice.getPaymentsById(id);
     	List<OrderList> orderList = dbservice.getOrderItemListsById(id);
     	payment.setOrderList(orderList);
-    		return new ResponseEntity<Payment>(payment, HttpStatus.OK);
-    	
+    		return new ResponseEntity<Payment>(payment, HttpStatus.OK);    	
     }
     
     @RequestMapping(method = RequestMethod.GET, path = "/dailypaymentsummary", produces = "application/json")
@@ -98,18 +117,49 @@ public class POSController {
     		) throws Exception {
     	return new ResponseEntity<List<Object[]>>(dbservice.getOrderSummaryByWeek(), HttpStatus.OK);
     }
-    
-    
-    
-    @RequestMapping(method = RequestMethod.GET, path = "/payment", produces = "application/json")
-    public HttpEntity<List<Payment>> getPayments(
-    		@RequestParam(value = "type", required = false)  @Valid Integer provider,
+        
+    @RequestMapping(path = "/paymentsByMonth", produces = "application/json")
+    public HttpEntity<List<Payment>> paymentsByMonth(
     		@RequestParam(value = "month", required = false)   @Valid Integer month,
     		@RequestParam(value = "year", required = false) @NotNull  @Valid Integer year
-    		) throws Exception {
-    	return new ResponseEntity<List<Payment>>(dbservice.getPaymentsByYearMonth(year,month,provider), HttpStatus.OK);
+            ) throws Exception { 
+    	return new ResponseEntity<List<Payment>>(dbservice.getPaymentsWithEarnedByYearMonth(year,month),HttpStatus.CREATED);
     }
     
+    @RequestMapping(path = "/paymentsByDate", produces = "application/json")
+    public HttpEntity<List<Payment>> getPaymentsbyDate(
+    		@RequestParam(value = "date", required = false)  @NotNull @Valid String dateString
+            ) throws Exception { 
+    	java.text.DateFormat dateFormat;
+		dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+		Date date = null;
+		try {
+			date = dateFormat.parse(dateString);
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+//			e.printStackTrace();
+		}
+		Date nextdate = new Date();
+		Calendar c = Calendar.getInstance(); 
+		c.setTime(date); 
+		c.add(Calendar.DATE, 1);
+		nextdate = c.getTime();
+    	return new ResponseEntity<List<Payment>>(dbservice.getPaymentsbyDate(date,nextdate),HttpStatus.CREATED);
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/payment", produces = "application/json")
+    public HttpEntity
+    <Page<Payment>> getPayments(
+    		@RequestParam(value = "type", required = false)  @Valid Integer provider,
+    		@RequestParam(value = "month", required = false)   @Valid Integer month,
+    		@RequestParam(value = "year", required = false) @NotNull  @Valid Integer year,
+    		@RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size
+    		) throws Exception {  		
+    	return new ResponseEntity<Page<Payment>>(dbservice.getPaginationPaymentsByYearMonth(year,month,provider,page,size), HttpStatus.OK);
+			
+			
+    }
     @RequestMapping(method = RequestMethod.GET, path = "/purchaseItems", produces = "application/json")
     public HttpEntity<List<PurchaseItemList>> getPurchasesItems(
     		@RequestParam(value = "id", required = false) @NotNull  @Valid String id
@@ -138,6 +188,23 @@ public class POSController {
     		return new ResponseEntity<Purchase>(purchase, HttpStatus.OK);
     	
     }
+    @PostMapping(path = "/splitExpired", produces = "application/json")
+    public HttpEntity splitExpired(
+    		@RequestParam(value = "group_data", required = false)  @NotNull @Valid String group_data
+    		) throws Exception {
+
+    	DecimalFormat df = new DecimalFormat("0.00");
+    	List<ExpiredCheck> items = Format.strToClassObjList(group_data, ExpiredCheck.class);
+    	for(ExpiredCheck item: items) {
+        	Double total = 0.0;
+        	Integer qty = item.getQuantity();
+        	total = Double.parseDouble(item.getUnitCost()) * qty;
+        	item.setAmount(df.format(total));
+    	}
+    	dbservice.setPurchaseItemListsWithExpired(items);
+    	return new ResponseEntity(HttpStatus.OK);
+    	
+    }
     
     @PostMapping(path = "/updateExpired", produces = "application/json")
     public HttpEntity updateExpired(
@@ -145,7 +212,7 @@ public class POSController {
     		) throws Exception {
     		
     	ExpiredCheck item = Format.strToClassObj(group_data, ExpiredCheck.class);
-    	dbservice.setPurchaseItemListsWithExpired(item);
+    	dbservice.setPurchaseItemListWithExpired(item);
     	return new ResponseEntity(HttpStatus.OK);
     	
     }
@@ -194,9 +261,17 @@ public class POSController {
         return new ResponseEntity<List<Supplier>>(dbservice.getSuppliers(), HttpStatus.OK);
     }
     
-    @RequestMapping(method = RequestMethod.GET, path = "/clients", produces = "application/json")
+    @RequestMapping(method = RequestMethod.GET, path = "/allclients", produces = "application/json")
     public HttpEntity<List<Client>> getClients() throws Exception {
         return new ResponseEntity<List<Client>>(dbservice.getClients(), HttpStatus.OK);
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/clients", produces = "application/json")
+    public HttpEntity<Page<Client>> getClients(
+    		@RequestParam(value = "page", required = false, defaultValue = "0") Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10") Integer size
+    		) throws Exception {
+        return new ResponseEntity<Page<Client>>(dbservice.getClients(page,size), HttpStatus.OK);
     }
     
     @RequestMapping(method = RequestMethod.GET, path = "/productById", produces = "application/json")
@@ -213,6 +288,14 @@ public class POSController {
     		) throws Exception {
     	
     		return new ResponseEntity<List<Inventory>>(dbservice.getListProductByCode(id), HttpStatus.OK);		
+    }
+    
+    @RequestMapping(method = RequestMethod.GET, path = "/productBySupplier", produces = "application/json")
+    public HttpEntity<List<Product>> productBySupplier(
+    		@RequestParam(value = "id", required = false)  @NotNull @Valid Integer id
+    		) throws Exception {
+    	
+    		return new ResponseEntity<List<Product>>(dbservice.getListProductBySupplier(id), HttpStatus.OK);		
     }
 //    public HttpEntity<List<Item>> getProductsById(
 //    		@RequestParam(value = "id", required = false)  @NotNull @Valid String id
@@ -941,4 +1024,62 @@ public class POSController {
         return new ResponseEntity(HttpStatus.CREATED);
     }
    
+    
+    @PostMapping("/cashsales/pdf")
+    public OutputStream generateCashSales(
+             @RequestBody @NotNull @Valid CashSales cashsales, BindingResult bindingResult, HttpServletResponse response) throws IOException {
+//   	 	LOG.info("export to pdf");
+        if (bindingResult.hasErrors()) {
+            response.setStatus(400);
+            response.getWriter().write("Download pdf data invalid.");
+            response.getWriter().flush();
+            LOG.error("Download pdf data invalid.");
+            return null;
+        } else {
+            try (OutputStream out = response.getOutputStream()){
+            	
+//                Document document = new Document(PageSize.A5);
+            	Document document = new Document(new RectangleReadOnly(598,792));
+                document.setMargins(36f,36f,36f,55f);
+                PdfWriter writer = PdfWriter.getInstance(document, out);
+                PDFBuilder builder = new PDFBuilder();
+        		writer.setPageEvent(builder);
+                String html = dbservice.getCashSalesPdfContent(cashsales);
+                PDFUtil.convertToPdf(writer, document, html);
+                return out;
+            } catch (IOException | DocumentException e){
+                LOG.error("PDF export to response fail", e);
+                return null;
+            }
+        }
+    }
+    
+    @PostMapping("/invoices/pdf")
+    public OutputStream generateInvoice(
+             @RequestBody @NotNull @Valid CashSales cashsales, BindingResult bindingResult, HttpServletResponse response) throws IOException {
+//   	 	LOG.info("export to pdf");
+        if (bindingResult.hasErrors()) {
+            response.setStatus(400);
+            response.getWriter().write("Download pdf data invalid.");
+            response.getWriter().flush();
+            LOG.error("Download pdf data invalid.");
+            return null;
+        } else {
+            try (OutputStream out = response.getOutputStream()){
+            	
+            	Document document = new Document(new RectangleReadOnly(598,792));
+                document.setMargins(36f,36f,36f,55f);
+                PdfWriter writer = PdfWriter.getInstance(document, out);
+                PDFBuilder builder = new PDFBuilder();
+        		writer.setPageEvent(builder);
+                String html = dbservice.getInvoicePdfContent(cashsales);
+                PDFUtil.convertToPdf(writer, document, html);
+                return out;
+            } catch (IOException | DocumentException e){
+                LOG.error("PDF export to response fail", e);
+                return null;
+            }
+        }
+    }
+    
 }

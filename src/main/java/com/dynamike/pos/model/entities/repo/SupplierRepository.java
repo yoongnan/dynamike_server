@@ -16,7 +16,4 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long>, Pagin
     
     @Query("SELECT v From Supplier v")
     List<Supplier> getSuppliers();
-
-//    @Query("SELECT v From VMwareProductProp v WHERE v.user_id = :userid ")
-//    List<Inventory> findByUserId(@Param("userid") Long userid);
 }

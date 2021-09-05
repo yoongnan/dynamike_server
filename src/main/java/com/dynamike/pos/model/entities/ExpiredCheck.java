@@ -47,7 +47,7 @@ public class ExpiredCheck {
 
 	
 	@OneToOne(fetch=FetchType.EAGER)
-    @JoinColumn(name = "purchase_id", insertable=false, updatable=false,referencedColumnName="id")
+    @JoinColumn(name = "purchase_id", referencedColumnName="id")
     private Purchase purchase;
 	
 //    @Column(name = "purchase_id")
@@ -57,7 +57,7 @@ public class ExpiredCheck {
 //    private String productCode;
 	
 	@ManyToOne(fetch=FetchType.EAGER)
-    @JoinColumn(name = "product_code", insertable=false, updatable=false,referencedColumnName="id")
+    @JoinColumn(name = "product_code", referencedColumnName="id")
     private Product product;
 
     @Column(name = "quantity")

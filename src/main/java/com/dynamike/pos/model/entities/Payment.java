@@ -55,9 +55,6 @@ public class Payment {
     
     @Column(name = "payment_due")
     private String paymentDue;
-    
-//    @Column(name = "payment_type")
-//    private String paymentType;
 
     @OneToOne(fetch=FetchType.EAGER)
     @JoinColumn(name = "payment_type")
@@ -69,13 +66,15 @@ public class Payment {
     @Column(name = "shipping_fees")
     private String shippingFees;
     
-//    @Transient
     @Column(name = "commission_fees")
     private String commissionFees;
     
     @Column(name = "other_fees")
     private String otherFees;    
     
+//    @Column(name = "adjusted")
+    @Transient
+    private String adjusted; 
 
 	@Column(name = "discount")
     private String discount;
@@ -83,8 +82,6 @@ public class Payment {
     @Column(name = "free_shipping")
     private Boolean freeShipping;
     
-//    @Column(name = "provider")
-//    private String provider;
     @OneToOne(fetch=FetchType.EAGER)
     @JoinColumn(name = "provider")
     private ProviderSource provider;
@@ -100,18 +97,59 @@ public class Payment {
     
     @Column(name = "status")
     private String status;
-    
-//    @Column(name = "client")
-//    private String client;
 
     @OneToOne(fetch=FetchType.EAGER)
     @JoinColumn(name = "client")
     private Client client;
     
     @Transient
+    private String totalPayment;
+    
+    @Transient
+    private String totalCOGS;
+    
+    @Transient
+    private String earned;
+    
+    @Transient
+    private Integer orderCount;
+    
+    @Transient
     private List<OrderList> orderList;
     
-    public List<OrderList> getOrderList() {
+    public Integer getOrderCount() {
+		return orderCount;
+	}
+
+	public void setOrderCount(Integer orderCount) {
+		this.orderCount = orderCount;
+	}
+
+	public String getAdjusted() {
+		return adjusted;
+	}
+
+	public void setAdjusted(String adjusted) {
+		this.adjusted = adjusted;
+	}
+
+	public String getTotalCOGS() {
+		return totalCOGS;
+	}
+
+	public void setTotalCOGS(String totalCOGS) {
+		this.totalCOGS = totalCOGS;
+	}
+
+	public String getEarned() {
+		return earned;
+	}
+
+	public void setEarned(String earned) {
+		this.earned = earned;
+	}
+
+	public List<OrderList> getOrderList() {
         return orderList;
     }
 
@@ -119,21 +157,32 @@ public class Payment {
         this.orderList = orderList;
     }
     
-    public String getId() {
+    public String getTotalPayment() {
+		return totalPayment;
+	}
+
+	public void setTotalPayment(String totalPayment) {
+		this.totalPayment = totalPayment;
+	}
+
+	public String getId() {
         return id;
     }
 
     public void setId(String id) {
         this.id = id;
     }
+    public Date getDateInstance() {
+        return this.date;
+    }
     
     public String getDate() {
     	java.text.DateFormat dateFormat;
-    	if(provider.getId().equals(3)) {
+//    	if(provider.getId().equals(3)) {
     		dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd hh:mm:ss");	
-    	}else {
-    		dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
-    	}
+//    	}else {
+//    		dateFormat = new java.text.SimpleDateFormat("yyyy-MM-dd");
+//    	}
           
         String strDate = dateFormat.format(date);  
         return strDate;

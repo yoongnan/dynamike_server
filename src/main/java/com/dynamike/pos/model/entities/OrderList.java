@@ -45,7 +45,12 @@ public class OrderList {
     @Column(name = "item_id")
     private String itemId;
 
-    @Column(name = "quantity")
+    @Transient
+    private String index;
+	@Transient
+    private String name;
+    
+	@Column(name = "quantity")
     private Integer quantity;
     
 //    @Transient
@@ -68,6 +73,23 @@ public class OrderList {
     public void setId(String id) {
     	this.id = id;
     }
+
+    public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+    
+    public String getIndex() {
+		return index;
+	}
+
+	public void setIndex(String index) {
+		this.index = index;
+	}
+
     
 //    public Integer getId() {
 //        return id;

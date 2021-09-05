@@ -1,10 +1,11 @@
 package com.dynamike.pos.model.entities.repo;
 
 
+import java.util.Date;
 import java.util.List;
 
-
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.PagingAndSortingRepository;
@@ -12,8 +13,10 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.http.server.PathContainer.PathSegment;
 import org.springframework.stereotype.Repository;
 
+import com.dynamike.pos.model.entities.Inventory;
 import com.dynamike.pos.model.entities.Payment;
-import com.dynamike.pos.model.entities.Purchase;;
+import com.dynamike.pos.model.entities.Purchase;
+import com.dynamike.pos.model.entities.StockCheck;;
 
 @Repository
 public interface PaymentRepository extends JpaRepository<Payment, Long>, PagingAndSortingRepository<Payment, Long> {
@@ -21,22 +24,28 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, PagingA
     @Query("SELECT v From Payment v")
     List<Payment> getPayments();
     
+//    @Query(value = " select *  from pos.payments  where date like :date  order by date desc", 
+//    		  nativeQuery = true)
+    @Query(value = " select v  from Payment v where v.date between :from and :to  order by v.date desc")
+    List<Payment> getPaymentsByDate(@Param("from") Date from, @Param("to") Date to);
+    
     @Query("SELECT v.year From Payment v group by v.year order by v.year desc")
     List<Integer> getTransactionYears();
     
     @Query("SELECT v From Payment v  where v.orderId=:invoiceNo  order by v.date")
-    Payment getPaymentsByInvoiceNo(@Param("invoiceNo") String id);
-    
+    Payment getPaymentsByInvoiceNo(@Param("invoiceNo") String id);    
     
     @Query("SELECT v From Payment v  where (:types is null or v.provider.id in (:types)) and v.year =:years and (:month is null or v.month =:month) order by v.date desc")
     List<Payment> getPaymentsByYearMonth(@Param("years") Integer year,@Param("month") Integer value, @Param("types") List<Integer> types);
+    
+    @Query("SELECT v From Payment v  where (:types is null or v.provider.id in (:types)) and v.year =:years and (:month is null or v.month =:month) order by v.date desc")
+    Page<Payment> getPaginationPaymentsByYearMonth(@Param("years") Integer year,@Param("month") Integer value, @Param("types") List<Integer> types,  Pageable pageable);
 	
 	@Query("SELECT v From Payment v  where v.year =:years and v.month =:month  order by v.date desc")
     List<Payment> getPaymentsByYearMonth(@Param("years") Integer year,@Param("month") Integer value);
 	
 	@Query("SELECT v From Payment v  where v.year =:years  order by v.date desc")
-    List<Payment> getPaymentsByYear(@Param("years") Integer years);
-	
+    List<Payment> getPaymentsByYear(@Param("years") Integer years);	
 	
     @Query("SELECT v.month, v.year, COALESCE(sum(v.paymentDue), 0) From Payment as v  where v.year in (:years) group by v.month, v.year")
     List<Object[]> getMonthlyReport(@Param("years") List<Integer> years);
@@ -63,11 +72,14 @@ public interface PaymentRepository extends JpaRepository<Payment, Long>, PagingA
     		  nativeQuery = true)
     List<Object[]> getOrderSummaryByWeek(@Param("years") Integer years, @Param("provider")Integer provider);
     
-    @Query(value = " select sum(total_price) as cost from pos.order_items  as oi join pos.inventory as i on oi.item_id = i.code where invoice_id in( select order_id from pos.payments where  year = :year and month = :month and (:provider is null or provider = :provider))  ", 
+    @Query(value = " select sum(total_price) as cost from pos.order_items  where invoice_id in( select order_id from pos.payments where  year = :year and month = :month and (:provider is null or provider = :provider))  ", 
   		  nativeQuery = true)
     Float getCOGS(@Param("year") Integer years, @Param("month") Integer month, @Param("provider")Integer provider);
 
     @Query(value = " select sum(payment_credit) as credit, sum(payment_fees) as fees, sum(commission_fees) as commission, sum(shipping_fees) as shipping, sum(other_fees) as other, sum(payment_due) as due  from pos.payments  where year = :year and month = :month and (:provider is null or provider = :provider)  ", 
     		  nativeQuery = true)
     List<Object[]> getPaymentBuckets(@Param("year") Integer years, @Param("month") Integer month, @Param("provider")Integer provider);
+    
+    @Query("SELECT count(v)  From Payment as v  where v.year = :year and v.month = :month and (:provider is null or v.provider.id = :provider) group by v.month, v.year, v.provider")
+    Integer generateCashSalesNo(@Param("year") Integer year, @Param("month") Integer month, @Param("provider")Integer provider);
 }

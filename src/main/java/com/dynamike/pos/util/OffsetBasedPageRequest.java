@@ -1,5 +1,5 @@
 /***********************************************************
- * Copyright 2017 VMware, Inc.  All rights reserved.
+ * Copyright 2021 Dynamike, Inc.  All rights reserved.
 ***********************************************************/
 
 package com.dynamike.pos.util;

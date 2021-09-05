@@ -1,0 +1,1 @@
+start posserverApp.bat --WindowStyle Hidden

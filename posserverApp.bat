@@ -1,0 +1,1 @@
+java -jar -Xmx50m pos-server-1.0.0.jar -Dfile.encoding=UTF-8

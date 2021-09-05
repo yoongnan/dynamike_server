@@ -17,6 +17,4 @@ public interface OrderRepository extends JpaRepository<Order, Long>, PagingAndSo
     @Query("SELECT v From Client v")
     List<Order> getOrders();
 
-//    @Query("SELECT v From VMwareProductProp v WHERE v.user_id = :userid ")
-//    List<Inventory> findByUserId(@Param("userid") Long userid);
 }

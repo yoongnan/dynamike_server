@@ -82,10 +82,19 @@ public class DetailReport implements Serializable {
 	private float otherFees;
     
     private float netsales;
-
+    
+    private float inStock;
 
     
-    public float getNetsales() {
+    public float getInStock() {
+		return inStock;
+	}
+
+	public void setInStock(float inStock) {
+		this.inStock = inStock;
+	}
+
+	public float getNetsales() {
 		return netsales;
 	}
 

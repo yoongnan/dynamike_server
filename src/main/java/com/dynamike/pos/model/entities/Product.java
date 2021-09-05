@@ -48,6 +48,18 @@ public class Product implements Serializable {
     @OneToOne(fetch=FetchType.EAGER)
     @JoinColumn(name = "code", insertable=false, updatable=false,referencedColumnName="id")
     private SimpleItem item;
+    
+    @OneToOne(fetch=FetchType.EAGER)
+    @JoinColumn(name = "supplier_id")
+    private Supplier supplier;
+    
+    public Supplier getSupplier() {
+        return supplier;
+    }
+
+    public void setSupplier(Supplier supplier) {
+        this.supplier = supplier;
+    }
 
 
     public String getUnit_cost() {

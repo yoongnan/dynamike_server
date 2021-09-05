@@ -124,7 +124,7 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long>, Pagin
     Float getWallet();
     
     
-    @Query(value = "select type,sum(total_amount) from pos.purchases where type in (2,3,5,6,7) and month = :month and year = :years group by type", 
+    @Query(value = "select type,sum(total_amount) from pos.purchases where type in (1,2,3,5,6,7) and month = :month and year = :years group by type", 
   		  nativeQuery = true)
     List<Object[]> getExpenditure(@Param("years") Integer years,@Param("month") Integer month);
     

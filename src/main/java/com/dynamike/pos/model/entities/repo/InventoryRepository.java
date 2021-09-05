@@ -26,6 +26,9 @@ public interface InventoryRepository extends JpaRepository<Inventory, Long>, Pag
     @Query("SELECT v From Product v")
     List<Product> getProducts();
     
+    @Query("SELECT v From Product v WHERE (v.supplier.id = :id) ")
+    List<Product> getListProductBySupplier(@Param("id") Integer id);
+    
     @Query("SELECT v From Inventory v WHERE (v.code = :code or v.barcode = :code) order by stock desc ")
     List<Inventory> getListProductByCode(@Param("code") String code);
     

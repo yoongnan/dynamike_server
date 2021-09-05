@@ -1,5 +1,5 @@
 /***********************************************************
- * Copyright 2017 VMware, Inc.  All rights reserved.
+ * Copyright 2021 Dynamike, Inc.  All rights reserved.
 ***********************************************************/
 
 package com.dynamike.pos.config;
@@ -29,11 +29,11 @@ public class SwaggerConfig {
 //    @Autowired
     private Environment environment;
 
-    public static final String API_TITLE = "VMware Solution Designer API Version 1.0";
-    public static final String API_DESRIPTION = "VMware solution and related data APIs for VMware Solution Designer";
-    public static final String API_TERMS_OF_SERVICE = "By using this API, you consent to be bound by the VMware APIs Terms of Service";
-    public static final String API_LICENSE_URL = "www.vmware.com";
-    public static final Contact API_CONTACT = new Contact("GTO Tools", "https://confluence.eng.vmware.com/display/VMSD/VMware+Solution+Designer+Home", "vsdadmin@vmware.com");
+    public static final String API_TITLE = "Dynamike Solution Designer API Version 1.0";
+    public static final String API_DESRIPTION = "Dynamike solution and related data APIs for Dynamike Solution Designer";
+    public static final String API_TERMS_OF_SERVICE = "By using this API, you consent to be bound by the Dynamike APIs Terms of Service";
+    public static final String API_LICENSE_URL = "www.dynmaike.com";
+    public static final Contact API_CONTACT = new Contact("Dynamike Tools", "https://dynamike.trading.com", "dynamike.trading@gmail.com");
 
     public static final String API_PACKAGE = "com.dynamike.pos.controller";
 

@@ -17,7 +17,10 @@ public interface OrderListRepository extends JpaRepository<OrderList, Long>, Pag
     
     @Query("SELECT v From OrderList v")
     List<OrderList> getOrderLists();
-
+    
+    @Query("SELECT sum(v.totalPrice) From OrderList v where v.invoiceId = :invoiceId")
+    Float getCOGSByInvoiceId(@Param("invoiceId") String invoiceId);
+    
     @Query("SELECT v From OrderList v where v.invoiceId = :invoiceId")
     List<OrderList> getOrderItemListsById(@Param("invoiceId") String invoiceId);
     

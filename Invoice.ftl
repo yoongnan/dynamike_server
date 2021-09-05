@@ -71,12 +71,17 @@ table{
 
 
 .ctd0{padding: 0px;margin: 0px;vertical-align: bottom;width:70%}
-.ctd1{padding: 0px;margin: 0px;vertical-align: bottom;width:5%;}
-.ctd2{padding: 0px;margin: 0px;vertical-align: bottom;width:15%}
+.ctd1{padding: 0px;margin: 0px;vertical-align: bottom;width:10%;}
+.ctd2{padding: 0px;margin: 0px;vertical-align: bottom;width:10%}
+
+.otd0{width:10%}
+.otd1{width:50%;}
+.otd2{width:10%}
+.otd3{width:10%}
+.otd4{width:10%}
 
 .t0{font: 15px 'Calibri';}
 .t1{font: bold 16px 'Calibri';}
-
 .boldborder{border-width:3 3 3 3;}
 </STYLE>
 </HEAD>
@@ -85,30 +90,31 @@ table{
 <div id="container">
 
 <div class="title">
-	<p class="p0 ft0">Dynamike Trading</p>
-	<p class="p1 ft1"><NOBR>(CT0084055-M)</NOBR></p>
-	<p class="p2 ft2">Kampar, Perak, Malaysia</p>
-	<p class="p3 ft2">Email:dynmaike.trading@gmail.com</p>
+	<p class="p0 ft0">Dynamike Enterprise</p>
+	<p class="p1 ft1"><NOBR>(IP0530890-X)</NOBR></p>
+	<p class="p2 ft2">205, Jalan Perak 6, Taman Perak</p>
+	<p class="p2 ft2">31900 Kampar, Perak, Malaysia</p>
+	<p class="p3 ft2">Email:yoongnan.chin@gmail.com</p>
 	<hr/>
-	<p class="p4 ft3 thead" >CASH SALES</p>
+	<p class="p4 ft3 thead" >Invoices</p>
 </div>
 
 <div class="clientInfo">
 	<table cellpadding=0 cellspacing=0 class="t0" >
 		<tr>
-			<td class="tr0 ctd0"><p class="p5 ft4">${clientName}</p></td>
+			<td class="tr0 ctd0"><p class="p5 ft4">Date: ${date}</p></td>
 			<td class="tr0 ctd1"><p class="p6 ft6">No.</p></td>
-			<td class="tr0 ctd2"><p class="p7 ft7">CS ${cashSalesNo}</p></td>
+			<td class="tr0 ctd2"><p class="p7 ft7">I${cashSalesNo}</p></td>
 		</tr>
 		<tr>
-			<td class="tr1 ctd0"><p class="p5 ft4">${address}</p></td>
+			<td class="tr1 ctd0 "><p class="p5 ft4">${clientName}</p></td>
 			<td class="tr1 ctd1"><p class="p6 ft5">&nbsp;</p></td>
 			<td class="tr1 ctd2"><p class="p6 ft5">&nbsp;</p></td>
 		</tr>
 		<tr>
-			<td class="tr2 ctd0"><p class="p5 ft4">TEL: ${contactNo}</p></td>
-			<td class="tr2 ctd1"><p class="p6 ft4">Date:</p></td>
-			<td class="tr2 ctd2"><p class="p8 ft4">${date}</p></td>
+			<td class="tr2 ctd0"><p class="p5 ft4">${address}</p></td>
+			<td class="tr2 ctd1"><p class="p6 ft6">Due Date:</p></td>
+			<td class="tr2 ctd2"><p class="p6 ft6">${date}</p></td>
 		</tr>
 		<tr>
 			<td class="tr2 ctd0"><p class="p5 ft4">Email: ${email}</p></td>
@@ -121,28 +127,25 @@ table{
 	<table cellpadding=0 cellspacing=0 >
 		<Thead class="thead" id="orderlist">
 			<tr >
-				<td class="tr3 td12 td"><p class="p5 ft8">Item</p></td>
-				<td class="tr3 td13 td"><p class="p6 ft8">Code</p></td>
-				<td class="tr3 td1 td"><p class="p6 ft8">Description</p></td>
-				<td class="tr3 td2 td"><p class="p9 ft8">Qty</p></td>
-				<td class="tr3 td3 td"><p class="p7 ft8">U/Price</p></td>
-				<td class="tr3 td4 td"><p class="p10 ft8">Total</p></td>
+				<td class="tr3 td12 td otd0"><p class="p5 ft8">Item</p></td>
+				<td class="tr3 td1 td otd1"><p class="p6 ft8">Description</p></td>
+				<td class="tr3 td2 td otd2"><p class="p9 ft8">Qty</p></td>
+				<td class="tr3 td3 td otd3"><p class="p7 ft8">U/Price</p></td>
+				<td class="tr3 td4 td otd4"><p class="p10 ft8">Total</p></td>
 			</tr>
 			<tr>
 				<td class="tr0 td6"><p class="p6 ft5">&nbsp;</p></td>
-				<td class="tr0 td7"><p class="p6 ft5">&nbsp;</p></td>
 				<td class="tr0 td8"><p class="p6 ft5">&nbsp;</p></td>
 				<td class="tr0 td9"><p class="p6 ft5">&nbsp;</p></td>
-				<td class="tr0 td10"><p class="p7 ft6">RM</p></td>
-				<td class="tr0 td11"><p class="p10 ft6">RM</p></td>
+				<td class="tr0 td10"><p class="p7 ft6">USD</p></td>
+				<td class="tr0 td11"><p class="p10 ft6">USD</p></td>
 			</tr>
 		</Thead>
 		<tbody>
 		<#list orderItemList as orderitem>			
 			<tr>
 				<td class="tr4 td12"><p class="p5 ft4">${orderitem.index}</p></td>
-				<td class="tr4 td13"><p class="p6 ft4">${orderitem.itemId}</p></td>
-				<td class="tr4 td1"><p class="p6 ftItemName">${orderitem.name}</p></td>
+				<td class="tr4 td2"><p class="p6 ft4">${orderitem.itemId}</p></td>
 				<td class="tr4 td2"><p class="p11 ft4">${orderitem.quantity}</p></td>
 				<td class="tr4 td3"><p class="p7 ft4">${orderitem.unitPrice}</p></td>
 				<td class="tr4 td4"><p class="p10 ft4">${orderitem.totalPrice}</p></td>
@@ -150,27 +153,19 @@ table{
 		</#list>
 
 		</tbody>
-		<tfoot>
-			<tr >
-				<td colspan="6">
-					
-				</td>
-			</tr>			
-		</tfoot>
 	</table>
 </div>
 	
 <div class="money">
-	<p class=" ft11">Shipping Fees Exclusive / <SPAN class="ft10">運輸費另算</SPAN></p>
 <hr/>
 		<table cellpadding=0 cellspacing=0 class="t1">
 			<tr>
-				<td class="tr0 td14"><p class="p6 ft4">RINGGIT MALAYSIA ${ringgit}
+				<td class="tr0 td14"><p class="p6 ft4">US DOLLAR ${ringgit}
 				<#if cents != "ZERO">
 					AND CENTS ${cents}
 				</#if>ONLY</p></td>
 				<td class="tr0 td15"><p class="p6 ft12">Sub Total</p></td>
-				<td class="tr0 td16"><p class="p13 ft6">${subTotal}</p></td>
+				<td class="tr0 td16"><p class="p13 ft6">${subTotal} USD</p></td>
 			</tr>
 			<tr>
 				<td class="tr5 td14"><p class="p6 ft5">&nbsp;</p></td>
@@ -180,7 +175,7 @@ table{
 			<tr>
 				<td class="tr5 td14"><p class="p6 ft5">&nbsp;</p></td>
 				<td class="tr5 td15"><p class="p6 ft12">Final Total</p></td>
-				<td class="boldborder tr0 td16"><p class="p13 ft6">${finalTotal}</p></td>
+				<td class="boldborder tr0 td16"><p class="p13 ft6">${finalTotal} USD</p></td>
 			</tr>
 		</table>
 	</div>
@@ -188,7 +183,7 @@ table{
 	<div class="footer">
 		<p class="p14 ft13">Notes:</p>
 		<p class="p15 ft13">1. All cheques should be crossed should made payable to</p>
-		<p class="p15 ft14">DYNAMIKE TRADING</p>
+		<p class="p15 ft14">DYNAMIKE ENTERPRISE</p>
 		<p class="p16 ft15">2. Please Bank into CIMB Islamic Bank A/C:</p>
 		<p class="p17 ft14">86-0473262-6</p>
 		<p class="p18 ft15">And Email The Slip. Thank You !</p>
